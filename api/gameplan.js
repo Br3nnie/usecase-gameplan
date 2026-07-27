@@ -132,6 +132,7 @@ Respond ONLY with a JSON object, no markdown, no preamble:
       body: JSON.stringify({
         model: 'claude-sonnet-5',
         max_tokens: 1200,
+        thinking: { type: 'disabled' },
         messages: [{ role: 'user', content: prompt }],
       }),
     })
