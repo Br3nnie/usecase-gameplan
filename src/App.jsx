@@ -251,7 +251,7 @@ function BrandHeader({ subtitle, className }) {
       <img
         src="/corbelle-logo.png"
         alt="Corbelle"
-        style={{ display: "block", width: 156, height: 46, objectFit: "cover", objectPosition: "center 50%" }}
+        style={{ display: "block", width: 104, height: 31, objectFit: "cover", objectPosition: "center 50%" }}
       />
       {subtitle && <div style={{ ...labelStyle, marginTop: 2, marginBottom: 0 }}>{subtitle}</div>}
     </div>
