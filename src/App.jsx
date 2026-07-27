@@ -1,0 +1,585 @@
+import { useState } from "react";
+
+// ─── COLOUR TOKENS ───────────────────────────────────────────────
+const C = {
+  accent:      "#1a56db",
+  accentLight: "#eff6ff",
+  accentText:  "#1e40af",
+  accentDim:   "#93c5fd",
+  bg:          "#f0f4f8",
+  card:        "#ffffff",
+  border:      "#e2e8f0",
+  inputBg:     "#f8fafc",
+  textPrimary: "#1a1a2e",
+  textSecond:  "#4a5568",
+  textMuted:   "#6b7280",
+  red:         "#ef4444",
+  redBg:       "#fef2f2",
+  redBorder:   "#fecaca",
+  redText:     "#b91c1c",
+  redLight:    "#7f1d1d",
+  green:       "#16a34a",
+  greenBg:     "#f0fdf4",
+  amber:       "#d97706",
+  orange:      "#ea580c",
+};
+
+const GATES = [
+  {
+    key: "problemClarity",
+    label: "Problem Clarity",
+    question: "Can you describe the problem you're solving without mentioning any technology?",
+    tip: "If you can't separate the problem from the solution, you're not solving a problem — you're justifying a purchase.",
+    scale: ["No", "Not really", "Getting there", "Mostly", "Clearly yes"],
+    failMessage: "You're not ready yet. If you can't describe the problem without mentioning the technology, you're not solving a problem... you're retrofitting a justification. This is exactly how organisations end up with expensive shelfware and a CTO explaining to the board why nobody's using the tool they just spent six figures on. Go back and define the problem first. The technology conversation comes later.",
+    stopTitle: "Stop. Redefine.",
+  },
+  {
+    key: "stakeholderValidation",
+    label: "Stakeholder Validation",
+    question: "Have the people who actually experience this problem confirmed it's a real, recurring issue?",
+    tip: "Don't assume — have you actually asked them? Exec assumptions are how shelfware gets bought.",
+    scale: ["Never asked", "Informally", "Some have", "Most have", "Formally confirmed"],
+    failMessage: "Please stop. You're solving a problem you've assumed exists. The people who actually live with this day-to-day haven't confirmed it's a real priority. This means you're about to invest time, money and political capital into something built on an exec hypothesis. We've seen this all before. It's how CoPilot got rolled out to 150 people who didn't ask for it and stopped using it within 9 days. Go and talk to the people on the ground first.",
+    stopTitle: "Stop. Go and ask.",
+  },
+  {
+    key: "changeReadiness",
+    label: "Change Readiness",
+    question: "Have the people affected been told this is coming, and is there a plan for managing the transition?",
+    tip: "The biggest mistake: no training investment = users excited for a week, then back to old habits.",
+    scale: ["No plan", "Vague intent", "In discussion", "Plan drafted", "Plan confirmed"],
+    failMessage: "The technology is the easy part. This is where most AI initiatives quietly die. Not because the tool didn't work, but because nobody told the people affected it was coming, nobody trained them, and nobody owned the transition. We've seen senior teams excited about AI on Monday and back to their old ways by Friday. Before you go any further, answer this: who specifically owns the change, how will people be trained, and what does good actually look like on day 30?",
+    stopTitle: "Stop. Sort the transition first.",
+  },
+];
+
+const SCORING_DIMS = [
+  {
+    key: "processQuality",
+    label: "Process Quality",
+    weight: 0.25,
+    question: "Is the process you're applying AI to already lean and documented, or are you hoping AI will fix underlying problems?",
+    tip: "AI accelerates what's already there — good or bad. Fix the process before you automate it.",
+    scale: ["Broken", "Inconsistent", "Functional", "Documented", "Lean & proven"],
+    blocker: [
+      "The process is broken. AI won't fix this — it will make the mess move faster.",
+      "Too inconsistent to automate reliably. Standardise first.",
+      "Functional but not optimised. Worth mapping before adding AI.",
+      "Well documented. Minor inefficiencies worth resolving before deploying.",
+      "Strong process foundation. Ready for AI overlay.",
+    ],
+  },
+  {
+    key: "dataReadiness",
+    label: "Data Readiness",
+    weight: 0.20,
+    question: "Does the right data exist, is it accessible, and clean enough to act on?",
+    tip: "Garbage in, garbage out. AI is only as good as the data feeding it.",
+    scale: ["Doesn't exist", "Exists but messy", "Accessible but unclean", "Mostly clean", "Clean & accessible"],
+    blocker: [
+      "Critical data gaps — AI cannot function reliably without addressing these first.",
+      "Data exists but quality issues will undermine every output.",
+      "Data is usable but needs cleansing or governance work before scaling.",
+      "Data is largely ready. Spot-check quality before deployment.",
+      "Strong data readiness. Proceed with confidence.",
+    ],
+  },
+  {
+    key: "successDefinition",
+    label: "Success Definition",
+    weight: 0.20,
+    question: "Have you defined specific metrics for both adoption and engagement before you start?",
+    tip: "Adoption and engagement are two different things. 'People are using it' is not a success metric.",
+    scale: ["Not defined", "Vague goals", "One metric", "Adoption only", "Both defined"],
+    blocker: [
+      "No definition of success. You won't know if it's working or failing.",
+      "Vague goals won't survive first contact with reality. Get specific.",
+      "One metric isn't enough. Define both adoption and engagement.",
+      "Adoption metrics exist but engagement is undefined. Add stickiness measures.",
+      "Clear success definition. You'll know exactly what good looks like.",
+    ],
+  },
+  {
+    key: "executiveSponsorship",
+    label: "Executive Sponsorship",
+    weight: 0.15,
+    question: "Is there a named executive who owns this initiative and can unblock decisions when needed?",
+    tip: "Without a named sponsor, AI initiatives die in committee. The CEO asking 'are we doing AI yet?' is not sponsorship.",
+    scale: ["No sponsor", "Interest only", "Informally agreed", "Named but passive", "Named & active"],
+    blocker: [
+      "No sponsor means no decisions get made when it gets hard. It will get hard.",
+      "Interest isn't ownership. Someone needs to be accountable.",
+      "Informal agreement isn't enough when budget or headcount is on the line.",
+      "Named but passive won't cut it. They need to actively unblock.",
+      "Strong executive sponsorship. This initiative has the backing it needs.",
+    ],
+  },
+  {
+    key: "governanceReadiness",
+    label: "Governance Readiness",
+    weight: 0.10,
+    question: "Do you have a policy covering data upload, IP protection, and acceptable use before this goes live?",
+    tip: "Senior staff uploading confidential documents to public LLMs is not hypothetical — it happens on day one without clear guardrails.",
+    scale: ["No policy", "Being drafted", "Partial policy", "Policy exists", "Policy + attestation"],
+    blocker: [
+      "No guardrails means day one is a data risk. Sort this before launch.",
+      "A draft policy is better than nothing but won't protect you if something goes wrong.",
+      "Partial policy leaves gaps. Close them before going live.",
+      "Policy exists. Make sure staff have read and understood it.",
+      "Strong governance foundation. Policy and accountability in place.",
+    ],
+  },
+  {
+    key: "roiRealism",
+    label: "ROI Realism",
+    weight: 0.05,
+    question: "Can you articulate what success looks like in measurable terms with a timeframe and an owner?",
+    tip: "'Efficiency gains' is not a metric. Name the number, the date, and the person accountable.",
+    scale: ["No idea", "Rough guess", "Defined metric(s)", "Metric(s) + owner", "Metric(s) + owner + deadline"],
+    blocker: [
+      "No ROI definition. You're flying blind on value.",
+      "A rough guess won't survive a board question. Get specific.",
+      "Metric(s) without an owner is just a wish.",
+      "Metric(s) and owner are good. Add a deadline to create accountability.",
+      "Clear, measurable ROI definition with full accountability.",
+    ],
+  },
+  {
+    key: "operationalResilience",
+    label: "Operational Resilience",
+    weight: 0.03,
+    question: "If this AI tool became unavailable tomorrow, would this process still function?",
+    tip: "OpenAI went down and gaps appeared immediately in firms that had embedded it without a fallback plan.",
+    scale: ["Total dependency", "No plan", "Partial fallback", "Fallback exists", "Fully resilient"],
+    blocker: [
+      "Complete single point of failure. A contingency plan is non-negotiable before going live.",
+      "No plan means a vendor outage becomes your operational crisis.",
+      "Partial fallback is better than nothing — document it and test it.",
+      "Fallback exists. Make sure it's been tested before you actually need it.",
+      "Fully resilient. No single point of failure.",
+    ],
+  },
+  {
+    key: "costResilience",
+    label: "Cost Resilience",
+    weight: 0.02,
+    question: "If the cost of this AI tool increased 5× tomorrow, could your business absorb it?",
+    tip: "Token costs are not fixed. Firms that embedded AI at today's prices with no cost ceiling are exposed.",
+    scale: ["Would kill it", "Serious problem", "Painful but manageable", "Easily absorbed", "Cost is negligible"],
+    blocker: [
+      "A 5× cost increase would end this initiative. That's a critical dependency to resolve.",
+      "A serious cost problem would force hard decisions. Model the scenarios now, not later.",
+      "Painful but survivable — but have the conversation with finance before you're committed.",
+      "Good cost resilience. Keep monitoring vendor pricing as the market matures.",
+      "Cost is not a constraint. Strong position.",
+    ],
+  },
+];
+
+const RADAR_DIMS   = ["processQuality","dataReadiness","successDefinition","executiveSponsorship","governanceReadiness"];
+const RADAR_LABELS = ["Process\nQuality","Data\nReadiness","Success\nDefinition","Exec\nSponsorship","Governance"];
+
+const VERDICT_BANDS = [
+  { min: 80, label: "Strong Foundation",            color: "#16a34a", icon: "✅", message: "Your use case has solid foundations. The logical next step is a process blueprint before selecting any technology." },
+  { min: 60, label: "Proceed with Conditions",      color: "#d97706", icon: "⚠️", message: "There's a viable use case here, but specific gaps need groundwork before committing to a technology decision." },
+  { min: 40, label: "Significant Groundwork Needed",color: "#ea580c", icon: "🔶", message: "This isn't a no — but it isn't ready. Acting now risks investing in the wrong solution to a poorly defined problem." },
+  { min: 0,  label: "Not Ready",                    color: "#ef4444", icon: "🛑", message: "The foundations aren't in place yet. Proceeding without addressing these gaps typically leads to expensive reversals." },
+];
+
+// ─── COMPONENTS ──────────────────────────────────────────────────
+
+function RadarChart({ scores }) {
+  const cx = 160, cy = 160, r = 110;
+  const levels = [0.2, 0.4, 0.6, 0.8, 1.0];
+  function polar(angle, radius) {
+    const rad = (angle - 90) * (Math.PI / 180);
+    return { x: cx + radius * Math.cos(rad), y: cy + radius * Math.sin(rad) };
+  }
+  const angles = RADAR_DIMS.map((_, i) => (i / RADAR_DIMS.length) * 360);
+  const gridPts = levels.map(l => angles.map(a => polar(a, r * l)).map(p => `${p.x},${p.y}`).join(" "));
+  const scorePts = RADAR_DIMS.map((d, i) => polar(angles[i], r * ((scores[d] || 1) / 5)));
+  const scorePolygon = scorePts.map(p => `${p.x},${p.y}`).join(" ");
+  return (
+    <svg viewBox="0 0 320 320" style={{ width: "100%", maxWidth: 300 }}>
+      {gridPts.map((pts, i) => <polygon key={i} points={pts} fill="none" stroke={C.border} strokeWidth="1" />)}
+      {angles.map((angle, i) => { const pt = polar(angle, r); return <line key={i} x1={cx} y1={cy} x2={pt.x} y2={pt.y} stroke={C.border} strokeWidth="1" />; })}
+      <polygon points={scorePolygon} fill="rgba(26,86,219,0.12)" stroke={C.accent} strokeWidth="2" />
+      {scorePts.map((p, i) => <circle key={i} cx={p.x} cy={p.y} r="5" fill={C.accent} />)}
+      {angles.map((angle, i) => {
+        const pt = polar(angle, r + 28);
+        const lines = RADAR_LABELS[i].split("\n");
+        return (
+          <text key={i} x={pt.x} y={pt.y} textAnchor="middle" fill={C.textMuted} fontSize="10.5" fontFamily="'DM Sans', sans-serif">
+            {lines.map((line, j) => <tspan key={j} x={pt.x} dy={j === 0 ? (lines.length > 1 ? "-0.5em" : "0") : "1.2em"}>{line}</tspan>)}
+          </text>
+        );
+      })}
+    </svg>
+  );
+}
+
+function ScoreBar({ value }) {
+  return (
+    <div style={{ background: C.border, borderRadius: 4, height: 6, width: "100%", overflow: "hidden" }}>
+      <div style={{ width: `${(value / 5) * 100}%`, height: "100%", background: C.accent, borderRadius: 4, transition: "width 0.6s ease" }} />
+    </div>
+  );
+}
+
+function ProgressBar({ current, total }) {
+  return (
+    <div style={{ display: "flex", gap: 5, marginBottom: 24 }}>
+      {Array.from({ length: total }).map((_, i) => (
+        <div key={i} style={{ height: 4, flex: 1, borderRadius: 4, background: i < current ? C.accent : i === current ? C.accentDim : C.border }} />
+      ))}
+    </div>
+  );
+}
+
+function BackButton({ onClick }) {
+  return (
+    <button onClick={onClick} style={{ background: "none", border: "none", color: C.textMuted, fontSize: 13, cursor: "pointer", marginTop: 14, display: "block", width: "100%", textAlign: "center", fontFamily: "'DM Sans', sans-serif", padding: "8px 0" }}>
+      ← Back
+    </button>
+  );
+}
+
+// ─── SHARED STYLES ───────────────────────────────────────────────
+const wrapStyle     = { minHeight: "100vh", background: C.bg, color: C.textPrimary, display: "flex", alignItems: "center", justifyContent: "center", padding: "24px 16px" };
+const cardStyle     = { background: C.card, borderRadius: 16, padding: "36px 32px", maxWidth: 600, width: "100%", boxShadow: "0 4px 24px rgba(0,0,0,0.08)", border: `1px solid ${C.border}` };
+const labelStyle    = { fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", color: C.accent, fontWeight: 700, marginBottom: 10 };
+const questionStyle = { fontSize: 20, fontWeight: 700, color: C.textPrimary, lineHeight: 1.35, marginBottom: 0 };
+const tipStyle      = { fontSize: 13, color: C.accentText, lineHeight: 1.6, marginTop: 14, padding: "10px 14px", background: C.accentLight, borderRadius: 8, borderLeft: `3px solid ${C.accent}` };
+const btnStyle      = { background: C.accent, color: "#fff", border: "none", borderRadius: 50, padding: "14px 28px", fontSize: 15, fontWeight: 600, cursor: "pointer", width: "100%", marginTop: 20, fontFamily: "'DM Sans', sans-serif" };
+const btnSecStyle   = { background: "transparent", color: C.accent, border: `1.5px solid ${C.accent}`, borderRadius: 50, padding: "12px 28px", fontSize: 14, fontWeight: 600, cursor: "pointer", width: "100%", marginTop: 10, fontFamily: "'DM Sans', sans-serif" };
+const inputStyle    = { width: "100%", background: C.inputBg, border: `1.5px solid ${C.border}`, borderRadius: 10, padding: "14px 16px", color: C.textPrimary, fontSize: 15, fontFamily: "'DM Sans', sans-serif", boxSizing: "border-box" };
+
+// ─── APP ─────────────────────────────────────────────────────────
+export default function App() {
+  const totalSteps = GATES.length + SCORING_DIMS.length;
+
+  const initScores = () => {
+    const s = {};
+    GATES.forEach(g => s[g.key] = 3);
+    SCORING_DIMS.forEach(d => s[d.key] = 3);
+    return s;
+  };
+
+  const [step, setStep]                   = useState("intro");
+  const [useCase, setUseCase]             = useState("");
+  const [scores, setScores]               = useState(initScores());
+  const [gateIndex, setGateIndex]         = useState(0);
+  const [scoringIndex, setScoringIndex]   = useState(0);
+  const [failedGate, setFailedGate]       = useState(null);
+  const [gameplan, setGameplan]           = useState(null);
+  const [loadingGameplan, setLoadingGameplan] = useState(false);
+  const [gameplanError, setGameplanError] = useState(null);
+  const [gameplanStatus, setGameplanStatus] = useState("");
+
+  function setScore(key, val) { setScores(s => ({ ...s, [key]: val })); }
+
+  function calcScore() {
+    return Math.round(SCORING_DIMS.reduce((acc, d) => acc + (scores[d.key] / 5) * d.weight, 0) * 100);
+  }
+
+  function getVerdict(s) { return VERDICT_BANDS.find(b => s >= b.min); }
+
+  function weakestDims(n = 3) {
+    return [...SCORING_DIMS]
+      .sort((a, b) => scores[a.key] - scores[b.key])
+      .slice(0, n)
+      .map(d => ({ label: d.label, score: scores[d.key], scaleLabel: d.scale[scores[d.key] - 1] }));
+  }
+
+  async function fetchGameplan() {
+    setLoadingGameplan(true);
+    setGameplanError(null);
+    setGameplan(null);
+    const score = calcScore();
+    const verdict = getVerdict(score);
+
+    const statuses = ["Reviewing your weakest gaps...", "Matching gaps to next steps...", "Building your gameplan..."];
+    let i = 0;
+    setGameplanStatus(statuses[0]);
+    const statusTimer = setInterval(() => {
+      i = Math.min(i + 1, statuses.length - 1);
+      setGameplanStatus(statuses[i]);
+    }, 3500);
+
+    try {
+      const response = await fetch("/api/gameplan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          useCase,
+          foundationScore: score,
+          verdictLabel: verdict?.label,
+          weakestDimensions: weakestDims(3),
+        }),
+      });
+      if (!response.ok) {
+        const t = await response.text();
+        console.error("Gameplan API error:", t);
+        setGameplanError("Couldn't build your gameplan right now. Please try again.");
+        setLoadingGameplan(false);
+        clearInterval(statusTimer);
+        return;
+      }
+      const data = await response.json();
+      if (data.error || !data.phases) {
+        setGameplanError("Couldn't build your gameplan right now. Please try again.");
+      } else {
+        setGameplan(data);
+      }
+    } catch (e) {
+      console.error("Gameplan fetch error:", e);
+      setGameplanError("Couldn't build your gameplan right now. Please try again.");
+    }
+    clearInterval(statusTimer);
+    setLoadingGameplan(false);
+  }
+
+  function handleGateNext() {
+    const gate = GATES[gateIndex];
+    if (scores[gate.key] < 3) { setFailedGate(gate); setStep("gateBlock"); return; }
+    if (gateIndex < GATES.length - 1) { setGateIndex(i => i + 1); } else { setStep("scoring"); }
+  }
+
+  function handleGateBack() {
+    if (gateIndex === 0) { setStep("intro"); } else { setGateIndex(i => i - 1); }
+  }
+
+  function handleScoringNext() {
+    if (scoringIndex < SCORING_DIMS.length - 1) { setScoringIndex(i => i + 1); } else { setStep("results"); }
+  }
+
+  function handleScoringBack() {
+    if (scoringIndex === 0) { setStep("gates"); setGateIndex(GATES.length - 1); } else { setScoringIndex(i => i - 1); }
+  }
+
+  function goToGameplan() {
+    setStep("gameplan");
+    fetchGameplan();
+  }
+
+  function reset() {
+    setStep("intro"); setUseCase(""); setScores(initScores());
+    setGateIndex(0); setScoringIndex(0); setFailedGate(null);
+    setGameplan(null); setGameplanError(null); setLoadingGameplan(false);
+  }
+
+  const score       = calcScore();
+  const verdict     = getVerdict(score);
+  const currentGate = GATES[gateIndex];
+  const currentDim  = SCORING_DIMS[scoringIndex];
+
+  return (
+    <div style={wrapStyle}>
+      <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+      {/* ── INTRO ── */}
+      {step === "intro" && (
+        <div style={cardStyle}>
+          <div style={labelStyle}>Corbelle</div>
+          <h1 style={{ fontSize: 28, fontWeight: 700, color: C.textPrimary, lineHeight: 1.2, marginBottom: 12 }}>AI Use Case Gameplan</h1>
+          <p style={{ fontSize: 15, color: C.textSecond, lineHeight: 1.7, marginBottom: 12 }}>
+            Before buying a licence or briefing a team, find out whether your AI use case has the foundations to succeed — then get a gameplan for closing the gaps.
+          </p>
+          <p style={{ fontSize: 13, color: C.textMuted, lineHeight: 1.6, marginBottom: 24 }}>11 questions. Under 5 minutes. A clear verdict, plus what to do next.</p>
+          <textarea
+            style={{ ...inputStyle, resize: "vertical", minHeight: 90 }}
+            placeholder="Describe the AI use case you're considering in one or two sentences..."
+            value={useCase}
+            onChange={e => setUseCase(e.target.value)}
+          />
+          <button style={{ ...btnStyle, opacity: useCase.trim().length < 10 ? 0.45 : 1 }} disabled={useCase.trim().length < 10} onClick={() => setStep("gates")}>
+            Begin Assessment →
+          </button>
+        </div>
+      )}
+
+      {/* ── GATES ── */}
+      {step === "gates" && (
+        <div style={cardStyle}>
+          <ProgressBar current={gateIndex} total={totalSteps} />
+          <div style={labelStyle}>Foundation Gate {gateIndex + 1} of {GATES.length}</div>
+          <h2 style={questionStyle}>{currentGate.question}</h2>
+          <div style={tipStyle}>{currentGate.tip}</div>
+          <div style={{ marginTop: 24, marginBottom: 8 }}>
+            <div style={{ fontSize: 32, fontWeight: 700, color: C.accent, textAlign: "center", marginBottom: 4 }}>
+              {scores[currentGate.key]}<span style={{ fontSize: 16, color: C.textMuted }}>/5</span>
+            </div>
+            <div style={{ fontSize: 13, color: C.accent, textAlign: "center", marginBottom: 16, fontWeight: 600 }}>
+              {currentGate.scale[scores[currentGate.key] - 1]}
+            </div>
+            <input type="range" min="1" max="5" value={scores[currentGate.key]}
+              onChange={e => setScore(currentGate.key, Number(e.target.value))} style={{ width: "100%" }} />
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: C.textMuted, marginTop: 6 }}>
+              {currentGate.scale.map((l, i) => <span key={i} style={{ textAlign: "center", maxWidth: 60, lineHeight: 1.2 }}>{l}</span>)}
+            </div>
+          </div>
+          <button style={btnStyle} onClick={handleGateNext}>Continue →</button>
+          <BackButton onClick={handleGateBack} />
+        </div>
+      )}
+
+      {/* ── GATE BLOCK ── */}
+      {step === "gateBlock" && failedGate && (
+        <div style={cardStyle}>
+          <div style={{ ...labelStyle, color: C.red }}>Assessment Stopped</div>
+          <h2 style={{ fontSize: 22, fontWeight: 700, color: C.red, lineHeight: 1.3, marginBottom: 16 }}>{failedGate.stopTitle}</h2>
+          <div style={{ background: C.redBg, border: `1.5px solid ${C.redBorder}`, borderRadius: 12, padding: "20px 22px", marginBottom: 20 }}>
+            <div style={{ fontSize: 11, color: C.red, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10 }}>🚫 {failedGate.label}</div>
+            <p style={{ fontSize: 14, color: C.redText, lineHeight: 1.75, margin: 0 }}>{failedGate.failMessage}</p>
+          </div>
+          <p style={{ fontSize: 13, color: C.textMuted, lineHeight: 1.6, marginBottom: 0 }}>No score has been generated. Come back when this foundation is in place.</p>
+          <button style={btnStyle} onClick={reset}>Start Again</button>
+        </div>
+      )}
+
+      {/* ── SCORING ── */}
+      {step === "scoring" && (
+        <div style={cardStyle}>
+          <ProgressBar current={GATES.length + scoringIndex} total={totalSteps} />
+          <div style={labelStyle}>{currentDim.label} — Question {GATES.length + scoringIndex + 1} of {totalSteps}</div>
+          <h2 style={questionStyle}>{currentDim.question}</h2>
+          <div style={tipStyle}>{currentDim.tip}</div>
+          <div style={{ marginTop: 24, marginBottom: 8 }}>
+            <div style={{ fontSize: 32, fontWeight: 700, color: C.accent, textAlign: "center", marginBottom: 4 }}>
+              {scores[currentDim.key]}<span style={{ fontSize: 16, color: C.textMuted }}>/5</span>
+            </div>
+            <div style={{ fontSize: 13, color: C.accent, textAlign: "center", marginBottom: 16, fontWeight: 600 }}>
+              {currentDim.scale[scores[currentDim.key] - 1]}
+            </div>
+            <input type="range" min="1" max="5" value={scores[currentDim.key]}
+              onChange={e => setScore(currentDim.key, Number(e.target.value))} style={{ width: "100%" }} />
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: C.textMuted, marginTop: 6 }}>
+              {currentDim.scale.map((l, i) => <span key={i} style={{ textAlign: "center", maxWidth: 56, lineHeight: 1.2 }}>{l}</span>)}
+            </div>
+          </div>
+          <button style={btnStyle} onClick={handleScoringNext}>
+            {scoringIndex < SCORING_DIMS.length - 1 ? "Next →" : "See My Score →"}
+          </button>
+          <BackButton onClick={handleScoringBack} />
+        </div>
+      )}
+
+      {/* ── RESULTS ── */}
+      {step === "results" && (
+        <div style={{ ...cardStyle, maxWidth: 640 }}>
+          <div style={labelStyle}>Corbelle — Use Case Gameplan</div>
+
+          {/* Score */}
+          <div style={{ display: "flex", gap: 20, alignItems: "center", marginBottom: 28 }}>
+            <div style={{ width: 96, height: 96, borderRadius: "50%", background: `conic-gradient(${verdict?.color} ${score * 3.6}deg, ${C.border} 0deg)`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <div style={{ width: 74, height: 74, borderRadius: "50%", background: C.card, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column" }}>
+                <div style={{ fontSize: 24, fontWeight: 700, color: verdict?.color, lineHeight: 1 }}>{score}</div>
+                <div style={{ fontSize: 10, color: C.textMuted }}>/ 100</div>
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: 19, fontWeight: 700, color: verdict?.color, marginBottom: 5 }}>{verdict?.icon} {verdict?.label}</div>
+              <div style={{ fontSize: 13, color: C.textSecond, lineHeight: 1.6 }}>{verdict?.message}</div>
+            </div>
+          </div>
+
+          {/* Radar */}
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: 24 }}>
+            <RadarChart scores={scores} />
+          </div>
+
+          {/* Dimension breakdown */}
+          <div style={{ marginBottom: 8 }}>
+            {SCORING_DIMS.map(dim => (
+              <div key={dim.key} style={{ marginBottom: 14 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 5 }}>
+                  <span style={{ color: C.textSecond, fontWeight: 600 }}>{dim.label}</span>
+                  <span style={{ color: C.accent, fontWeight: 700 }}>{scores[dim.key]}/5 — {dim.scale[scores[dim.key]-1]}</span>
+                </div>
+                <ScoreBar value={scores[dim.key]} />
+                <div style={{ fontSize: 12, color: C.textMuted, marginTop: 5 }}>{dim.blocker[scores[dim.key]-1]}</div>
+              </div>
+            ))}
+          </div>
+
+          <button style={btnStyle} onClick={goToGameplan}>Build My Gameplan →</button>
+          <button style={btnSecStyle} onClick={reset}>Validate Another Use Case</button>
+        </div>
+      )}
+
+      {/* ── GAMEPLAN ── */}
+      {step === "gameplan" && (
+        <div style={{ ...cardStyle, maxWidth: 640 }}>
+          <div className="no-print" style={labelStyle}>Corbelle — Your Gameplan</div>
+
+          {loadingGameplan && (
+            <div style={{ textAlign: "center", padding: "40px 0", color: C.textMuted, fontSize: 14 }}>
+              <div style={{ fontSize: 26, marginBottom: 14 }}>⚡</div>
+              {gameplanStatus || "Building your gameplan..."}
+              <div style={{ fontSize: 11, color: C.textMuted, marginTop: 10, fontFamily: "monospace" }}>Usually 15–30 seconds</div>
+            </div>
+          )}
+
+          {!loadingGameplan && gameplanError && (
+            <div>
+              <div style={{ background: C.redBg, border: `1.5px solid ${C.redBorder}`, borderRadius: 12, padding: "18px 20px", marginBottom: 20 }}>
+                <p style={{ fontSize: 14, color: C.redText, lineHeight: 1.6, margin: 0 }}>{gameplanError}</p>
+              </div>
+              <button style={btnStyle} onClick={fetchGameplan}>Try Again</button>
+              <BackButton onClick={() => setStep("results")} />
+            </div>
+          )}
+
+          {!loadingGameplan && !gameplanError && gameplan && (
+            <>
+              <div className="print-section" style={{ marginBottom: 24 }}>
+                <div style={{ fontSize: 11, color: C.red, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 8 }}>
+                  {verdict?.icon} {score}/100 — {verdict?.label}
+                </div>
+                <h2 style={{ fontSize: 19, fontWeight: 700, color: C.textPrimary, lineHeight: 1.4, margin: 0 }}>
+                  {gameplan.headline}
+                </h2>
+              </div>
+
+              {(gameplan.phases || []).map((phase, pIdx) => (
+                <div key={pIdx} className="print-section" style={{ marginBottom: 26 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: C.accent, marginBottom: 3 }}>{phase.title}</div>
+                  <div style={{ fontSize: 12, color: C.textMuted, fontStyle: "italic", marginBottom: 12 }}>{phase.goal}</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    {(phase.steps || []).map((s, i) => (
+                      <div key={i} style={{ background: C.inputBg, border: `1px solid ${C.border}`, borderRadius: 10, padding: "16px 18px" }}>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: C.textPrimary, marginBottom: 4 }}>{s.action}</div>
+                        <p style={{ fontSize: 13, color: C.textSecond, lineHeight: 1.6, margin: 0 }}>{s.why}</p>
+                        {s.mapsTo && (
+                          <div style={{ marginTop: 8, display: "inline-block", fontSize: 11, fontWeight: 600, color: C.accentText, background: C.accentLight, borderRadius: 20, padding: "3px 10px" }}>
+                            Maps to: {s.mapsTo}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+
+              <div className="no-print" style={{ background: C.accentLight, borderRadius: 12, padding: "20px 22px", marginBottom: 16, borderLeft: `3px solid ${C.accent}` }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: C.textPrimary, marginBottom: 6 }}>
+                  {gameplan.closingLine || "Want to work through this with a thinking partner?"}
+                </div>
+                <div style={{ fontSize: 13, color: C.textSecond, lineHeight: 1.6, marginBottom: 14 }}>Corbelle helps mid-size executives make confident AI decisions — without the hype, the wasted licences, or the expensive reversals.</div>
+                <a href="https://cal.com/brennie/ai-30-mins" target="_blank" rel="noopener noreferrer"
+                  style={{ display: "block", background: C.accent, color: "#fff", borderRadius: 50, padding: "13px 20px", fontSize: 14, fontWeight: 600, textAlign: "center", textDecoration: "none" }}>
+                  Book a Free 30-Minute Call →
+                </a>
+              </div>
+
+              <button className="no-print" style={btnSecStyle} onClick={() => window.print()}>Print / Save as PDF</button>
+              <BackButton onClick={() => setStep("results")} />
+              <button className="no-print" style={{ ...btnSecStyle, marginTop: 8 }} onClick={reset}>Validate Another Use Case</button>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
