@@ -245,6 +245,19 @@ function BackButton({ onClick }) {
   );
 }
 
+function BrandHeader({ subtitle, className }) {
+  return (
+    <div className={className} style={{ marginBottom: 12 }}>
+      <img
+        src="/corbelle-logo.png"
+        alt="Corbelle"
+        style={{ display: "block", width: 156, height: 46, objectFit: "cover", objectPosition: "center 50%" }}
+      />
+      {subtitle && <div style={{ ...labelStyle, marginTop: 2, marginBottom: 0 }}>{subtitle}</div>}
+    </div>
+  );
+}
+
 // ─── SHARED STYLES ───────────────────────────────────────────────
 const wrapStyle     = { minHeight: "100vh", background: C.bg, color: C.textPrimary, display: "flex", alignItems: "center", justifyContent: "center", padding: "24px 16px" };
 const cardStyle     = { background: C.card, borderRadius: 16, padding: "36px 32px", maxWidth: 600, width: "100%", boxShadow: "0 4px 24px rgba(0,0,0,0.08)", border: `1px solid ${C.border}` };
@@ -381,7 +394,7 @@ export default function App() {
       {/* ── INTRO ── */}
       {step === "intro" && (
         <div style={cardStyle}>
-          <div style={labelStyle}>Corbelle</div>
+          <BrandHeader />
           <h1 style={{ fontSize: 28, fontWeight: 700, color: C.textPrimary, lineHeight: 1.2, marginBottom: 12 }}>AI Use Case Gameplan</h1>
           <p style={{ fontSize: 15, color: C.textSecond, lineHeight: 1.7, marginBottom: 12 }}>
             Before buying a licence or briefing a team, find out whether your AI use case has the foundations to succeed — then get a gameplan for closing the gaps.
@@ -468,7 +481,7 @@ export default function App() {
       {/* ── RESULTS ── */}
       {step === "results" && (
         <div style={{ ...cardStyle, maxWidth: 640 }}>
-          <div style={labelStyle}>Corbelle — Use Case Gameplan</div>
+          <BrandHeader subtitle="Use Case Gameplan" />
 
           {/* Score */}
           <div style={{ display: "flex", gap: 20, alignItems: "center", marginBottom: 28 }}>
@@ -511,7 +524,7 @@ export default function App() {
       {/* ── GAMEPLAN ── */}
       {step === "gameplan" && (
         <div style={{ ...cardStyle, maxWidth: 640 }}>
-          <div className="no-print" style={labelStyle}>Corbelle — Your Gameplan</div>
+          <BrandHeader className="no-print" subtitle="Your Gameplan" />
 
           {loadingGameplan && (
             <div style={{ textAlign: "center", padding: "40px 0", color: C.textMuted, fontSize: 14 }}>
