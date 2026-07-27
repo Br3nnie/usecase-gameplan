@@ -143,7 +143,7 @@ Respond ONLY with a JSON object, no markdown, no preamble:
     }
 
     const data = await anthropicResponse.json()
-    const text = data.content?.[0]?.text || '{}'
+    const text = data.content?.find((block) => block.type === 'text')?.text || '{}'
     const clean = text.replace(/```json[\s\S]*?```|```/g, '').trim()
 
     let gameplan = {}
