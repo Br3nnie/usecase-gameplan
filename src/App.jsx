@@ -344,17 +344,19 @@ export default function App() {
   };
 
   const [initialDraft] = useState(() => readLocalJson(DRAFT_STORAGE_KEY, null));
+  const initialFailedGate = GATES.find(g => g.key === initialDraft?.failedGateKey) || null;
   const [assessmentId, setAssessmentId]   = useState(() => initialDraft?.id || newAssessmentId());
   const [step, setStep]                   = useState(() => {
-    if (initialDraft?.step === "gateBlock") return initialDraft?.failedGateKey ? "gateWarning" : "gates";
+    if (initialDraft?.step === "gateBlock") return initialFailedGate ? "gateWarning" : "gates";
+    if (initialDraft?.step === "gateWarning" && !initialFailedGate) return "gates";
     if (initialDraft?.step === "gameplan" && !initialDraft?.gameplan) return "results";
     return RESTORABLE_STEPS.has(initialDraft?.step) ? initialDraft.step : "intro";
   });
   const [useCase, setUseCase]             = useState(() => initialDraft?.useCase || "");
   const [scores, setScores]               = useState(() => ({ ...initScores(), ...(initialDraft?.scores || {}) }));
-  const [gateIndex, setGateIndex]         = useState(() => initialDraft?.gateIndex || 0);
-  const [scoringIndex, setScoringIndex]   = useState(() => initialDraft?.scoringIndex || 0);
-  const [failedGate, setFailedGate]       = useState(() => GATES.find(g => g.key === initialDraft?.failedGateKey) || null);
+  const [gateIndex, setGateIndex]         = useState(() => Math.min(Math.max(Number(initialDraft?.gateIndex) || 0, 0), GATES.length - 1));
+  const [scoringIndex, setScoringIndex]   = useState(() => Math.min(Math.max(Number(initialDraft?.scoringIndex) || 0, 0), SCORING_DIMS.length - 1));
+  const [failedGate, setFailedGate]       = useState(initialFailedGate);
   const [gameplan, setGameplan]           = useState(() => initialDraft?.gameplan || null);
   const [history, setHistory]             = useState(() => {
     const saved = readLocalJson(HISTORY_STORAGE_KEY, []);
