@@ -179,6 +179,7 @@ const SCORING_DIMS = [
 
 const RADAR_DIMS   = ["processQuality","dataReadiness","successDefinition","executiveSponsorship","governanceReadiness"];
 const RADAR_LABELS = ["Process\nQuality","Data\nReadiness","Success\nDefinition","Exec\nSponsorship","Governance"];
+const MIN_USE_CASE_LENGTH = 50;
 
 const VERDICT_BANDS = [
   { min: 80, label: "Strong Foundation",            color: "#16a34a", icon: "✅", message: "Your use case has solid foundations. The logical next step is a process blueprint before selecting any technology." },
@@ -445,6 +446,8 @@ export default function App() {
   const verdict     = getVerdict(score);
   const currentGate = GATES[gateIndex];
   const currentDim  = SCORING_DIMS[scoringIndex];
+  const useCaseLength = useCase.trim().length;
+  const canBeginAssessment = useCaseLength >= MIN_USE_CASE_LENGTH;
 
   if (accessStatus !== "allowed") {
     const accessIssue = new URLSearchParams(window.location.search).get("access");
@@ -511,10 +514,10 @@ export default function App() {
             value={useCase}
             onChange={e => setUseCase(e.target.value)}
           />
-          <div style={{ fontSize: 12, fontWeight: 600, textAlign: "right", marginTop: 6, color: useCase.trim().length < 10 ? C.red : C.green }}>
-            {useCase.trim().length}/10 characters minimum
+          <div style={{ fontSize: 12, fontWeight: 600, textAlign: "right", marginTop: 6, color: canBeginAssessment ? C.green : C.red }}>
+            {useCaseLength}/{MIN_USE_CASE_LENGTH} characters minimum
           </div>
-          <button style={{ ...btnStyle, opacity: useCase.trim().length < 10 ? 0.45 : 1 }} disabled={useCase.trim().length < 10} onClick={() => setStep("gates")}>
+          <button style={{ ...btnStyle, opacity: canBeginAssessment ? 1 : 0.45 }} disabled={!canBeginAssessment} onClick={() => setStep("gates")}>
             Begin Assessment →
           </button>
         </div>
