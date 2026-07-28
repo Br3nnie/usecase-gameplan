@@ -177,6 +177,30 @@ const SCORING_DIMS = [
 const RADAR_DIMS   = ["processQuality","dataReadiness","successDefinition","executiveSponsorship","governanceReadiness"];
 const RADAR_LABELS = ["Process\nQuality","Data\nReadiness","Success\nDefinition","Exec\nSponsorship","Governance"];
 const MIN_USE_CASE_LENGTH = 50;
+const DRAFT_STORAGE_KEY = "corbelle.gameplan.draft.v1";
+const HISTORY_STORAGE_KEY = "corbelle.gameplan.history.v1";
+const HISTORY_LIMIT = 10;
+
+function readLocalJson(key, fallback) {
+  try {
+    const value = window.localStorage.getItem(key);
+    return value ? JSON.parse(value) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function writeLocalJson(key, value) {
+  try {
+    window.localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // Storage may be unavailable in private or restricted browser contexts.
+  }
+}
+
+function newAssessmentId() {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
 
 const VERDICT_BANDS = [
   { min: 80, label: "Strong Foundation",            color: "#16a34a", icon: "✅", message: "Your use case has solid foundations. The logical next step is a process blueprint before selecting any technology." },
@@ -318,13 +342,22 @@ export default function App() {
     return s;
   };
 
-  const [step, setStep]                   = useState("intro");
-  const [useCase, setUseCase]             = useState("");
-  const [scores, setScores]               = useState(initScores());
-  const [gateIndex, setGateIndex]         = useState(0);
-  const [scoringIndex, setScoringIndex]   = useState(0);
-  const [failedGate, setFailedGate]       = useState(null);
-  const [gameplan, setGameplan]           = useState(null);
+  const [initialDraft] = useState(() => readLocalJson(DRAFT_STORAGE_KEY, null));
+  const [assessmentId, setAssessmentId]   = useState(() => initialDraft?.id || newAssessmentId());
+  const [step, setStep]                   = useState(() => {
+    if (initialDraft?.step === "gameplan" && !initialDraft?.gameplan) return "results";
+    return initialDraft?.step || "intro";
+  });
+  const [useCase, setUseCase]             = useState(() => initialDraft?.useCase || "");
+  const [scores, setScores]               = useState(() => ({ ...initScores(), ...(initialDraft?.scores || {}) }));
+  const [gateIndex, setGateIndex]         = useState(() => initialDraft?.gateIndex || 0);
+  const [scoringIndex, setScoringIndex]   = useState(() => initialDraft?.scoringIndex || 0);
+  const [failedGate, setFailedGate]       = useState(() => GATES.find(g => g.key === initialDraft?.failedGateKey) || null);
+  const [gameplan, setGameplan]           = useState(() => initialDraft?.gameplan || null);
+  const [history, setHistory]             = useState(() => {
+    const saved = readLocalJson(HISTORY_STORAGE_KEY, []);
+    return Array.isArray(saved) ? saved : [];
+  });
   const [loadingGameplan, setLoadingGameplan] = useState(false);
   const [gameplanError, setGameplanError] = useState(null);
   const [gameplanStatus, setGameplanStatus] = useState("");
@@ -341,6 +374,48 @@ export default function App() {
       .catch(() => { if (active) setAccessStatus("error"); });
     return () => { active = false; };
   }, []);
+
+  useEffect(() => {
+    if (!useCase.trim()) {
+      try { window.localStorage.removeItem(DRAFT_STORAGE_KEY); } catch {}
+      return;
+    }
+
+    writeLocalJson(DRAFT_STORAGE_KEY, {
+      id: assessmentId,
+      step,
+      useCase,
+      scores,
+      gateIndex,
+      scoringIndex,
+      failedGateKey: failedGate?.key || null,
+      gameplan,
+      updatedAt: new Date().toISOString(),
+    });
+  }, [assessmentId, step, useCase, scores, gateIndex, scoringIndex, failedGate, gameplan]);
+
+  useEffect(() => {
+    if (!useCase.trim() || (step !== "results" && !gameplan)) return;
+
+    const score = calcScore();
+    const verdict = getVerdict(score);
+    const savedAssessment = {
+      id: assessmentId,
+      useCase,
+      scores,
+      score,
+      verdictLabel: verdict?.label || "",
+      gameplan,
+      updatedAt: new Date().toISOString(),
+    };
+
+    setHistory(existing => {
+      const next = [savedAssessment, ...existing.filter(item => item.id !== assessmentId)]
+        .slice(0, HISTORY_LIMIT);
+      writeLocalJson(HISTORY_STORAGE_KEY, next);
+      return next;
+    });
+  }, [assessmentId, step, useCase, scores, gameplan]);
 
   function setScore(key, val) { setScores(s => ({ ...s, [key]: val })); }
 
@@ -448,10 +523,33 @@ export default function App() {
     fetchGameplan();
   }
 
-  function reset() {
+  function startNewAssessment() {
+    try { window.localStorage.removeItem(DRAFT_STORAGE_KEY); } catch {}
+    setAssessmentId(newAssessmentId());
     setStep("intro"); setUseCase(""); setScores(initScores());
     setGateIndex(0); setScoringIndex(0); setFailedGate(null);
     setGameplan(null); setGameplanError(null); setLoadingGameplan(false);
+  }
+
+  function openSavedAssessment(saved) {
+    setAssessmentId(saved.id);
+    setUseCase(saved.useCase);
+    setScores({ ...initScores(), ...saved.scores });
+    setGateIndex(0);
+    setScoringIndex(0);
+    setFailedGate(null);
+    setGameplan(saved.gameplan || null);
+    setGameplanError(null);
+    setLoadingGameplan(false);
+    setStep(saved.gameplan ? "gameplan" : "results");
+  }
+
+  function deleteSavedAssessment(id) {
+    setHistory(existing => {
+      const next = existing.filter(item => item.id !== id);
+      writeLocalJson(HISTORY_STORAGE_KEY, next);
+      return next;
+    });
   }
 
   function startPurchasedGameplan() {
@@ -540,6 +638,44 @@ export default function App() {
           <button style={{ ...btnStyle, opacity: canBeginAssessment ? 1 : 0.45 }} disabled={!canBeginAssessment} onClick={() => setStep("gates")}>
             Begin Assessment →
           </button>
+          {history.length > 0 && (
+            <button style={btnSecStyle} onClick={() => setStep("history")}>
+              Previous Use Cases ({history.length})
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* ── PREVIOUS USE CASES ── */}
+      {step === "history" && (
+        <div style={{ ...cardStyle, maxWidth: 640 }}>
+          <BrandHeader subtitle="Saved on this device" />
+          <h1 style={{ fontSize: 24, fontWeight: 700, color: C.textPrimary, lineHeight: 1.25, marginBottom: 8 }}>Previous Use Cases</h1>
+          <p style={{ fontSize: 13, color: C.textMuted, lineHeight: 1.6, marginBottom: 20 }}>
+            These assessments are stored only in this browser. Open one to review its score or Gameplan.
+          </p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {history.map(saved => (
+              <div key={saved.id} style={{ background: C.inputBg, border: `1px solid ${C.border}`, borderRadius: 10, padding: "16px 18px" }}>
+                <p style={{ fontSize: 14, color: C.textPrimary, lineHeight: 1.55, fontWeight: 600, margin: "0 0 10px" }}>
+                  {saved.useCase.length > 180 ? `${saved.useCase.slice(0, 180)}…` : saved.useCase}
+                </p>
+                <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 12 }}>
+                  {saved.score}/100 — {saved.verdictLabel} · {saved.gameplan ? "Gameplan saved" : "Assessment saved"}
+                </div>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <button style={{ ...btnSecStyle, width: "auto", marginTop: 0, padding: "8px 14px", fontSize: 12 }} onClick={() => openSavedAssessment(saved)}>
+                    Open
+                  </button>
+                  <button style={{ ...btnSecStyle, width: "auto", marginTop: 0, padding: "8px 14px", fontSize: 12, color: C.red, borderColor: C.redBorder }} onClick={() => deleteSavedAssessment(saved.id)}>
+                    Delete
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+          <button style={btnStyle} onClick={startNewAssessment}>Validate a New Use Case</button>
+          <BackButton onClick={() => setStep("intro")} />
         </div>
       )}
 
@@ -651,7 +787,7 @@ export default function App() {
           </div>
 
           <button style={btnStyle} onClick={goToGameplan}>Build My Gameplan →</button>
-          <button style={btnSecStyle} onClick={reset}>Validate Another Use Case</button>
+          <button style={btnSecStyle} onClick={startNewAssessment}>Validate Another Use Case</button>
         </div>
       )}
 
@@ -723,7 +859,7 @@ export default function App() {
               <div className="no-print gameplan-actions">
                 <button style={{ ...btnSecStyle, width: "auto", marginTop: 0, padding: "11px 12px", fontSize: 12, whiteSpace: "nowrap" }} onClick={() => window.print()}>Print / Save PDF</button>
                 <button style={{ ...btnSecStyle, width: "auto", marginTop: 0, padding: "11px 12px", fontSize: 12, whiteSpace: "nowrap" }} onClick={() => setStep("results")}>← Back</button>
-                <button style={{ ...btnSecStyle, width: "auto", marginTop: 0, padding: "11px 12px", fontSize: 12, whiteSpace: "nowrap" }} onClick={reset}>Validate New Use Case</button>
+                <button style={{ ...btnSecStyle, width: "auto", marginTop: 0, padding: "11px 12px", fontSize: 12, whiteSpace: "nowrap" }} onClick={startNewAssessment}>Validate New Use Case</button>
               </div>
             </>
           )}
