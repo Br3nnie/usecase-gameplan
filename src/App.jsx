@@ -180,6 +180,7 @@ const MIN_USE_CASE_LENGTH = 50;
 const DRAFT_STORAGE_KEY = "corbelle.gameplan.draft.v1";
 const HISTORY_STORAGE_KEY = "corbelle.gameplan.history.v1";
 const HISTORY_LIMIT = 10;
+const RESTORABLE_STEPS = new Set(["intro", "history", "gates", "gateWarning", "scoring", "results", "gameplan"]);
 
 function readLocalJson(key, fallback) {
   try {
@@ -345,8 +346,9 @@ export default function App() {
   const [initialDraft] = useState(() => readLocalJson(DRAFT_STORAGE_KEY, null));
   const [assessmentId, setAssessmentId]   = useState(() => initialDraft?.id || newAssessmentId());
   const [step, setStep]                   = useState(() => {
+    if (initialDraft?.step === "gateBlock") return initialDraft?.failedGateKey ? "gateWarning" : "gates";
     if (initialDraft?.step === "gameplan" && !initialDraft?.gameplan) return "results";
-    return initialDraft?.step || "intro";
+    return RESTORABLE_STEPS.has(initialDraft?.step) ? initialDraft.step : "intro";
   });
   const [useCase, setUseCase]             = useState(() => initialDraft?.useCase || "");
   const [scores, setScores]               = useState(() => ({ ...initScores(), ...(initialDraft?.scores || {}) }));
