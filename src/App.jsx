@@ -258,6 +258,47 @@ function BrandHeader({ subtitle, className }) {
   );
 }
 
+function PurchaseSuccess({ onStart }) {
+  return (
+    <div style={wrapStyle}>
+      <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+      <main style={{ ...cardStyle, maxWidth: 560, textAlign: "center" }}>
+        <BrandHeader className="success-brand" />
+        <div
+          aria-hidden="true"
+          style={{
+            width: 64,
+            height: 64,
+            borderRadius: "50%",
+            display: "grid",
+            placeItems: "center",
+            margin: "8px auto 22px",
+            background: "#dcfce7",
+            color: C.green,
+            fontSize: 32,
+            fontWeight: 700,
+          }}
+        >
+          ✓
+        </div>
+        <div style={{ ...labelStyle, marginBottom: 8 }}>Payment confirmed</div>
+        <h1 style={{ fontSize: 30, fontWeight: 700, color: C.textPrimary, lineHeight: 1.2, marginBottom: 14 }}>
+          Your AI Use Case Gameplan is ready
+        </h1>
+        <p style={{ fontSize: 15, color: C.textSecond, lineHeight: 1.7, margin: "0 auto 8px", maxWidth: 440 }}>
+          Thank you for your purchase. Your access is active on this device, so you can start building your Gameplan now.
+        </p>
+        <p style={{ fontSize: 13, color: C.textMuted, lineHeight: 1.6, margin: "0 auto 4px", maxWidth: 440 }}>
+          We’ve also emailed you a secure access link so you can return later or continue on another device.
+        </p>
+        <button style={btnStyle} onClick={onStart}>
+          Start Your Gameplan →
+        </button>
+      </main>
+    </div>
+  );
+}
+
 // ─── SHARED STYLES ───────────────────────────────────────────────
 const wrapStyle     = { minHeight: "100vh", background: C.bg, color: C.textPrimary, display: "flex", alignItems: "center", justifyContent: "center", padding: "24px 16px" };
 const cardStyle     = { background: C.card, borderRadius: 16, padding: "36px 32px", maxWidth: 600, width: "100%", boxShadow: "0 4px 24px rgba(0,0,0,0.08)", border: `1px solid ${C.border}` };
@@ -290,6 +331,9 @@ export default function App() {
   const [gameplanError, setGameplanError] = useState(null);
   const [gameplanStatus, setGameplanStatus] = useState("");
   const [accessStatus, setAccessStatus] = useState("checking");
+  const [showPurchaseSuccess, setShowPurchaseSuccess] = useState(
+    () => new URLSearchParams(window.location.search).get("purchase") === "success"
+  );
 
   useEffect(() => {
     let active = true;
@@ -392,6 +436,11 @@ export default function App() {
     setGameplan(null); setGameplanError(null); setLoadingGameplan(false);
   }
 
+  function startPurchasedGameplan() {
+    window.history.replaceState({}, "", "/");
+    setShowPurchaseSuccess(false);
+  }
+
   const score       = calcScore();
   const verdict     = getVerdict(score);
   const currentGate = GATES[gateIndex];
@@ -437,6 +486,10 @@ export default function App() {
         </div>
       </div>
     );
+  }
+
+  if (showPurchaseSuccess) {
+    return <PurchaseSuccess onStart={startPurchasedGameplan} />;
   }
 
   return (

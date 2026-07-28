@@ -48,6 +48,11 @@ textarea:focus, input:focus {
   border-color: #1a56db !important;
 }
 
+.success-brand {
+  display: flex;
+  justify-content: center;
+}
+
 .gameplan-actions {
   display: grid;
   grid-template-columns: 1.15fr 0.7fr 1.45fr;
