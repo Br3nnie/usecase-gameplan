@@ -32,7 +32,7 @@ gh repo create usecase-gameplan --public --push
 ### 3. Add environment variables
 - Vercel dashboard → project → Settings → Environment Variables
 - `ANTHROPIC_API_KEY`
-- `APP_URL` (for example `https://usecase-gameplan.vercel.app`)
+- `APP_URL` (`https://gameplan.corbelle.ai`)
 - `SALES_URL` (for example `https://corbelle.ai/usecasegameplan`)
 - `SESSION_SECRET` (a long random value)
 - `STRIPE_SECRET_KEY`
@@ -44,7 +44,7 @@ gh repo create usecase-gameplan --public --push
 
 ### 4. Add the Stripe webhook
 
-Create a Stripe webhook endpoint for `https://usecase-gameplan.vercel.app/api/webhooks/stripe` and subscribe to `checkout.session.completed` and `checkout.session.async_payment_succeeded`. Copy its signing secret into `STRIPE_WEBHOOK_SECRET`.
+Create a Stripe webhook endpoint for `https://gameplan.corbelle.ai/api/webhooks/stripe` and subscribe to `checkout.session.completed` and `checkout.session.async_payment_succeeded`. Copy its signing secret into `STRIPE_WEBHOOK_SECRET`.
 
 Live at `your-project.vercel.app`.
 

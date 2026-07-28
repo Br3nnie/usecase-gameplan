@@ -181,6 +181,7 @@ const DRAFT_STORAGE_KEY = "corbelle.gameplan.draft.v1";
 const HISTORY_STORAGE_KEY = "corbelle.gameplan.history.v1";
 const HISTORY_LIMIT = 10;
 const ACCESS_CHECK_TIMEOUT_MS = 10000;
+const LEGACY_APP_HOST = "usecase-gameplan.vercel.app";
 const RESTORABLE_STEPS = new Set(["intro", "history", "gates", "gateWarning", "scoring", "results", "gameplan"]);
 
 function readLocalJson(key, fallback) {
@@ -373,6 +374,11 @@ export default function App() {
   );
 
   useEffect(() => {
+    if (window.location.hostname === LEGACY_APP_HOST) {
+      window.location.replace("/api/access/handoff");
+      return undefined;
+    }
+
     let active = true;
     const controller = new AbortController();
     const timeout = window.setTimeout(() => controller.abort(), ACCESS_CHECK_TIMEOUT_MS);
