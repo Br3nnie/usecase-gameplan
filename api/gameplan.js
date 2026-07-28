@@ -43,6 +43,23 @@ const FRAMEWORKS = [
   { term: "Human-in-the-Loop", meaning: "Any step that automates something must still include a human review checkpoint — AI output is not sign-off." },
 ]
 
+export function parseModelJson(text) {
+  const unfenced = String(text || '')
+    .trim()
+    .replace(/^```(?:json)?\s*/i, '')
+    .replace(/\s*```$/, '')
+    .trim()
+
+  try {
+    return JSON.parse(unfenced)
+  } catch (error) {
+    const objectStart = unfenced.indexOf('{')
+    const objectEnd = unfenced.lastIndexOf('}')
+    if (objectStart === -1 || objectEnd <= objectStart) throw error
+    return JSON.parse(unfenced.slice(objectStart, objectEnd + 1))
+  }
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' })
@@ -154,11 +171,10 @@ Respond ONLY with a JSON object, no markdown, no preamble:
 
     const data = await anthropicResponse.json()
     const text = data.content?.find((block) => block.type === 'text')?.text || '{}'
-    const clean = text.replace(/```json[\s\S]*?```|```/g, '').trim()
 
     let gameplan = {}
     try {
-      gameplan = JSON.parse(clean)
+      gameplan = parseModelJson(text)
     } catch (e) {
       console.error('Parse error:', e, text)
       return res.status(500).json({ error: 'Could not parse model output' })
