@@ -12,6 +12,7 @@ export default async function handler(req, res) {
     const session = await getStripe().checkout.sessions.create({
       mode: "payment",
       line_items: [{ price: priceId, quantity: 1 }],
+      allow_promotion_codes: true,
       customer_creation: "always",
       success_url: `${appUrl}/api/stripe/complete?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${salesUrl}#checkout`,

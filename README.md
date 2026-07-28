@@ -4,6 +4,8 @@ Standalone build of the AI Use Case Validator with a new **Gameplan** step. Same
 
 This is a paid standalone tool. Stripe Checkout grants access immediately after a verified £7 payment, stores the entitlement in Redis, signs the buyer into the app, and sends a one-time backup access link through Resend.
 
+Stripe promotion codes are enabled in Checkout. Discounts are managed in Stripe; fulfilment verifies the original £7 Gameplan Price ID rather than the discounted total, so valid discounted orders still receive access.
+
 ## What's different from usecase_validator
 
 - New `/gameplan` step after Results, with its own loading state and a dedicated `/api/gameplan` Claude call (not bundled into a single results call).

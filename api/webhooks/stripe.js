@@ -1,4 +1,9 @@
-import { fulfilGameplanPurchase, getStripe, isPaidGameplanSession } from "../../lib/stripe-purchase.js";
+import {
+  fulfilGameplanPurchase,
+  GAMEPLAN_PRODUCT,
+  GAMEPLAN_TIER,
+  getStripe,
+} from "../../lib/stripe-purchase.js";
 
 export const config = { api: { bodyParser: false } };
 
@@ -22,7 +27,9 @@ export default async function handler(req, res) {
 
     if (["checkout.session.completed", "checkout.session.async_payment_succeeded"].includes(event.type)) {
       const session = event.data.object;
-      if (isPaidGameplanSession(session)) await fulfilGameplanPurchase(session);
+      const isGameplan = session?.metadata?.product === GAMEPLAN_PRODUCT
+        && session?.metadata?.tier === GAMEPLAN_TIER;
+      if (isGameplan) await fulfilGameplanPurchase(session);
     }
 
     return res.status(200).json({ received: true });
