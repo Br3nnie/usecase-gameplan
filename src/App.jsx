@@ -182,7 +182,22 @@ const HISTORY_STORAGE_KEY = "corbelle.gameplan.history.v1";
 const HISTORY_LIMIT = 10;
 const ACCESS_CHECK_TIMEOUT_MS = 10000;
 const LEGACY_APP_HOST = "usecase-gameplan.vercel.app";
+// One-line rollback: set this to false to restore the original blue result rows and bars.
+const ENABLE_RESULT_SCORE_COLOURS = true;
 const RESTORABLE_STEPS = new Set(["intro", "history", "gates", "gateWarning", "scoring", "results", "gameplan"]);
+
+function resultScoreTone(score) {
+  if (!ENABLE_RESULT_SCORE_COLOURS) {
+    return { color: C.accent, background: "transparent", border: C.border, label: "" };
+  }
+  if (score <= 2) {
+    return { color: "#b91c1c", background: "#fef2f2", border: "#fecaca", label: "Needs attention" };
+  }
+  if (score === 3) {
+    return { color: "#a16207", background: "#fffbeb", border: "#fde68a", label: "Developing" };
+  }
+  return { color: "#15803d", background: "#f0fdf4", border: "#bbf7d0", label: "Strong" };
+}
 
 function readLocalJson(key, fallback) {
   try {
@@ -244,10 +259,10 @@ function RadarChart({ scores }) {
   );
 }
 
-function ScoreBar({ value }) {
+function ScoreBar({ value, color = C.accent }) {
   return (
     <div style={{ background: C.border, borderRadius: 4, height: 6, width: "100%", overflow: "hidden" }}>
-      <div style={{ width: `${(value / 5) * 100}%`, height: "100%", background: C.accent, borderRadius: 4, transition: "width 0.6s ease" }} />
+      <div style={{ width: `${(value / 5) * 100}%`, height: "100%", background: color, borderRadius: 4, transition: "width 0.6s ease" }} />
     </div>
   );
 }
@@ -923,9 +938,20 @@ export default function App() {
                 </p>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {foundationGaps().map(gap => (
-                    <div key={gap.label} style={{ display: "flex", justifyContent: "space-between", gap: 16, fontSize: 13 }}>
+                    <div key={gap.label} style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      gap: 16,
+                      fontSize: 13,
+                      padding: "9px 11px",
+                      background: resultScoreTone(gap.score).background,
+                      borderLeft: `4px solid ${resultScoreTone(gap.score).color}`,
+                      borderRadius: 6,
+                    }}>
                       <span style={{ color: C.textSecond, fontWeight: 600 }}>{gap.label}</span>
-                      <span style={{ color: C.amber, fontWeight: 700, textAlign: "right" }}>{gap.score}/5 — {gap.scaleLabel}</span>
+                      <span style={{ color: resultScoreTone(gap.score).color, fontWeight: 700, textAlign: "right" }}>
+                        {gap.score}/5 — {resultScoreTone(gap.score).label || gap.scaleLabel}
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -944,16 +970,27 @@ export default function App() {
 
           {/* Dimension breakdown */}
           <div style={{ marginBottom: 8 }}>
-            {SCORING_DIMS.map(dim => (
-              <div key={dim.key} style={{ marginBottom: 14 }}>
+            {SCORING_DIMS.map(dim => {
+              const tone = resultScoreTone(scores[dim.key]);
+              return (
+              <div key={dim.key} style={{
+                marginBottom: 12,
+                padding: ENABLE_RESULT_SCORE_COLOURS ? "12px 14px" : 0,
+                background: tone.background,
+                border: ENABLE_RESULT_SCORE_COLOURS ? `1px solid ${tone.border}` : "none",
+                borderLeft: ENABLE_RESULT_SCORE_COLOURS ? `4px solid ${tone.color}` : "none",
+                borderRadius: ENABLE_RESULT_SCORE_COLOURS ? 8 : 0,
+              }}>
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 5 }}>
                   <span style={{ color: C.textSecond, fontWeight: 600 }}>{dim.label}</span>
-                  <span style={{ color: C.accent, fontWeight: 700 }}>{scores[dim.key]}/5 — {dim.scale[scores[dim.key]-1]}</span>
+                  <span style={{ color: tone.color, fontWeight: 700, textAlign: "right" }}>
+                    {scores[dim.key]}/5{tone.label ? ` — ${tone.label}` : ` — ${dim.scale[scores[dim.key]-1]}`}
+                  </span>
                 </div>
-                <ScoreBar value={scores[dim.key]} />
+                <ScoreBar value={scores[dim.key]} color={tone.color} />
                 <div style={{ fontSize: 12, color: C.textMuted, marginTop: 5 }}>{dim.blocker[scores[dim.key]-1]}</div>
               </div>
-            ))}
+            )})}
           </div>
 
           <button style={btnStyle} onClick={goToGameplan}>Build My Gameplan →</button>
