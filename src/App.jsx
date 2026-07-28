@@ -31,8 +31,7 @@ const GATES = [
     question: "Can you describe the problem you're solving without mentioning any technology?",
     tip: "If you can't separate the problem from the solution, you're not solving a problem — you're justifying a purchase.",
     scale: ["No", "Not really", "Getting there", "Mostly", "Clearly yes"],
-    failMessage: "You're not ready yet. If you can't describe the problem without mentioning the technology, you're not solving a problem... you're retrofitting a justification. This is exactly how organisations end up with expensive shelfware and a CTO explaining to the board why nobody's using the tool they just spent six figures on. Go back and define the problem first. The technology conversation comes later.",
-    stopTitle: "Stop. Redefine.",
+    failMessage: "The problem is still tied too closely to the technology. That makes it difficult to tell whether this use case solves something important or retrofits a justification for an AI idea. Your Gameplan will make defining the underlying problem an early action.",
   },
   {
     key: "stakeholderValidation",
@@ -40,8 +39,7 @@ const GATES = [
     question: "Have the people who actually experience this problem confirmed it's a real, recurring issue?",
     tip: "Don't assume — have you actually asked them? Exec assumptions are how shelfware gets bought.",
     scale: ["Never asked", "Informally", "Some have", "Most have", "Formally confirmed"],
-    failMessage: "Please stop. You're solving a problem you've assumed exists. The people who actually live with this day-to-day haven't confirmed it's a real priority. This means you're about to invest time, money and political capital into something built on an exec hypothesis. We've seen this all before. It's how CoPilot got rolled out to 150 people who didn't ask for it and stopped using it within 9 days. Go and talk to the people on the ground first.",
-    stopTitle: "Stop. Go and ask.",
+    failMessage: "The people who experience this day to day have not yet confirmed it is a real, recurring priority. That means the use case is currently built on a hypothesis. Your Gameplan will include a practical way to validate the problem before you invest further.",
   },
   {
     key: "changeReadiness",
@@ -49,8 +47,7 @@ const GATES = [
     question: "Have the people affected been told this is coming, and is there a plan for managing the transition?",
     tip: "The biggest mistake: no training investment = users excited for a week, then back to old habits.",
     scale: ["No plan", "Vague intent", "In discussion", "Plan drafted", "Plan confirmed"],
-    failMessage: "The technology is the easy part. This is where most AI initiatives quietly die. Not because the tool didn't work, but because nobody told the people affected it was coming, nobody trained them, and nobody owned the transition. We've seen senior teams excited about AI on Monday and back to their old ways by Friday. Before you go any further, answer this: who specifically owns the change, how will people be trained, and what does good actually look like on day 30?",
-    stopTitle: "Stop. Sort the transition first.",
+    failMessage: "The people affected have not yet been brought into the plan, and ownership of the transition is unclear. Even a useful tool can fail when nobody owns adoption, training or the day-30 outcome. Your Gameplan will treat that transition work as part of the use case, not an afterthought.",
   },
 ];
 
@@ -360,6 +357,16 @@ export default function App() {
       .map(d => ({ label: d.label, score: scores[d.key], scaleLabel: d.scale[scores[d.key] - 1] }));
   }
 
+  function foundationGaps() {
+    return GATES
+      .filter(g => scores[g.key] < 3)
+      .map(g => ({
+        label: g.label,
+        score: scores[g.key],
+        scaleLabel: g.scale[scores[g.key] - 1],
+      }));
+  }
+
   async function fetchGameplan() {
     setLoadingGameplan(true);
     setGameplanError(null);
@@ -384,6 +391,7 @@ export default function App() {
           foundationScore: score,
           verdictLabel: verdict?.label,
           weakestDimensions: weakestDims(3),
+          foundationGaps: foundationGaps(),
         }),
       });
       if (!response.ok) {
@@ -410,8 +418,17 @@ export default function App() {
 
   function handleGateNext() {
     const gate = GATES[gateIndex];
-    if (scores[gate.key] < 3) { setFailedGate(gate); setStep("gateBlock"); return; }
+    if (scores[gate.key] < 3) { setFailedGate(gate); setStep("gateWarning"); return; }
+    advanceFromGate();
+  }
+
+  function advanceFromGate() {
     if (gateIndex < GATES.length - 1) { setGateIndex(i => i + 1); } else { setStep("scoring"); }
+  }
+
+  function continueWithGap() {
+    setFailedGate(null);
+    advanceFromGate();
   }
 
   function handleGateBack() {
@@ -505,9 +522,12 @@ export default function App() {
           <BrandHeader />
           <h1 style={{ fontSize: 28, fontWeight: 700, color: C.textPrimary, lineHeight: 1.2, marginBottom: 12 }}>AI Use Case Gameplan</h1>
           <p style={{ fontSize: 15, color: C.textSecond, lineHeight: 1.7, marginBottom: 12 }}>
-            Before buying a licence or briefing a team, find out whether your AI use case has the foundations to succeed — then get a gameplan for closing the gaps.
+            Turn one uncertain AI idea into a defensible next move before you buy a licence or brief a team.
           </p>
-          <p style={{ fontSize: 13, color: C.textMuted, lineHeight: 1.6, marginBottom: 24 }}>11 questions. Under 5 minutes. A clear verdict, plus what to do next.</p>
+          <p style={{ fontSize: 13, color: C.textMuted, lineHeight: 1.6, marginBottom: 10 }}>11 questions. Under 5 minutes. A clear verdict, plus what to do next.</p>
+          <p style={{ fontSize: 13, color: C.accentText, lineHeight: 1.6, marginBottom: 24, padding: "10px 14px", background: C.accentLight, borderRadius: 8 }}>
+            Answer honestly. Weak foundations will not disqualify your idea or end the assessment — they become part of your Gameplan.
+          </p>
           <textarea
             style={{ ...inputStyle, resize: "vertical", minHeight: 90 }}
             placeholder="Describe the AI use case you're considering in one or two sentences..."
@@ -548,17 +568,20 @@ export default function App() {
         </div>
       )}
 
-      {/* ── GATE BLOCK ── */}
-      {step === "gateBlock" && failedGate && (
+      {/* ── FOUNDATION WARNING ── */}
+      {step === "gateWarning" && failedGate && (
         <div style={cardStyle}>
-          <div style={{ ...labelStyle, color: C.red }}>Assessment Stopped</div>
-          <h2 style={{ fontSize: 22, fontWeight: 700, color: C.red, lineHeight: 1.3, marginBottom: 16 }}>{failedGate.stopTitle}</h2>
-          <div style={{ background: C.redBg, border: `1.5px solid ${C.redBorder}`, borderRadius: 12, padding: "20px 22px", marginBottom: 20 }}>
-            <div style={{ fontSize: 11, color: C.red, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10 }}>🚫 {failedGate.label}</div>
+          <div style={{ ...labelStyle, color: C.amber }}>Important foundation gap</div>
+          <h2 style={{ fontSize: 22, fontWeight: 700, color: C.textPrimary, lineHeight: 1.3, marginBottom: 16 }}>We’ve recorded this. Keep going.</h2>
+          <div style={{ background: "#fffbeb", border: "1.5px solid #fde68a", borderRadius: 12, padding: "20px 22px", marginBottom: 20 }}>
+            <div style={{ fontSize: 11, color: C.amber, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10 }}>⚠️ {failedGate.label}</div>
             <p style={{ fontSize: 14, color: C.redText, lineHeight: 1.75, margin: 0 }}>{failedGate.failMessage}</p>
           </div>
-          <p style={{ fontSize: 13, color: C.textMuted, lineHeight: 1.6, marginBottom: 0 }}>No score has been generated. Come back when this foundation is in place.</p>
-          <button style={btnStyle} onClick={reset}>Start Again</button>
+          <p style={{ fontSize: 13, color: C.textMuted, lineHeight: 1.6, marginBottom: 0 }}>
+            This does not disqualify the use case. It will become an explicit action in your final Gameplan.
+          </p>
+          <button style={btnStyle} onClick={continueWithGap}>Record This Gap and Continue →</button>
+          <BackButton onClick={() => { setFailedGate(null); setStep("gates"); }} />
         </div>
       )}
 

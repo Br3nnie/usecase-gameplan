@@ -72,15 +72,19 @@ export default async function handler(req, res) {
     const tier = await getTier(session.email)
     if (!hasAccess(tier, 'gameplan')) return res.status(403).json({ error: 'Purchase required' })
 
-    const { useCase, foundationScore, verdictLabel, weakestDimensions } = req.body
+    const { useCase, foundationScore, verdictLabel, weakestDimensions, foundationGaps = [] } = req.body
 
-    if (!useCase || !Array.isArray(weakestDimensions)) {
-      return res.status(400).json({ error: 'Missing useCase or weakestDimensions' })
+    if (!useCase || !Array.isArray(weakestDimensions) || !Array.isArray(foundationGaps)) {
+      return res.status(400).json({ error: 'Missing or invalid assessment data' })
     }
 
     const weakSummary = weakestDimensions
       .map(d => `- ${d.label}: ${d.score}/5 (${d.scaleLabel})`)
       .join('\n')
+
+    const foundationSummary = foundationGaps.length
+      ? foundationGaps.map(g => `- ${g.label}: ${g.score}/5 (${g.scaleLabel})`).join('\n')
+      : '- No critical foundation gaps were recorded.'
 
     const stageSummary = STAGE_TOOLS
       .map(s => `- ${s.name}: ${s.answers}`)
@@ -123,12 +127,15 @@ Verdict: ${verdictLabel}
 Their three weakest areas:
 ${weakSummary}
 
+Foundation gaps they answered honestly and were allowed to continue with:
+${foundationSummary}
+
 Corbelle also sells a 6-stage AI product suite. Point to a real next step where one genuinely applies — do not force a mapping if none fits:
 ${stageSummary}
 
 YOUR TASK
 
-Write their gameplan as 2-3 phases, sequenced so each phase unblocks the next. Every single step must pass the "So What?" Test and reference something specific from their use case description above — not "the process," but what their process actually is; not "the data," but what kind of data this use case would touch. If you can't tie a step back to a specific word or detail they wrote, cut it and write one you can.
+Write their gameplan as 2-3 phases, sequenced so each phase unblocks the next. Treat every recorded foundation gap as evidence for what the user needs to do first, not as a reason to reject the use case. If foundation gaps exist, the earliest phase must address them explicitly. Every single step must pass the "So What?" Test and reference something specific from their use case description above — not "the process," but what their process actually is; not "the data," but what kind of data this use case would touch. If you can't tie a step back to a specific word or detail they wrote, cut it and write one you can.
 
 For each phase, write a one-line "goal" the way a sharp operator would say it out loud — not "improve process quality," but something like "prove this isn't guesswork before you spend a penny on it." For each step's "why," name the actual cost of skipping it — what breaks, what it costs, or what it looks like in six months if they ignore this. Where a step is genuinely about applying a technology, use the Bridge Approach: name the specific task being automated or accelerated, not the technology category.
 
