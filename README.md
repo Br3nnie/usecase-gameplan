@@ -2,7 +2,7 @@
 
 Standalone build of the AI Use Case Validator with a new **Gameplan** step. Same 3 kill-switch gates and 8 weighted scoring dimensions as the original `usecase_validator`, plus: after the score, one dedicated Claude call turns the user's three weakest dimensions into a sequenced, numbered action plan — each step optionally mapped to the relevant stage in Corbelle's 6-stage AI product suite (Readiness Diagnostic, Use Case ID & Prioritisation, AI Audit, Tool & Solution Match, Governance & Policy, Rollout & Adoption).
 
-This is a paid standalone tool. Stripe Checkout grants access immediately after a verified £7 payment, stores the entitlement in Redis, signs the buyer into the app, and sends a one-time backup access link through Resend.
+This is a paid standalone tool. Stripe Checkout grants access immediately after a verified £7 payment, stores the entitlement in Redis, signs the buyer into the app, and sends a one-time backup access link through Resend. Emailed links open a confirmation screen before redemption so automated email-security scanners cannot consume them before the buyer does.
 
 Stripe promotion codes are enabled in Checkout. Discounts are managed in Stripe; fulfilment verifies the original £7 Gameplan Price ID rather than the discounted total, so valid discounted orders still receive access.
 

@@ -180,6 +180,7 @@ const MIN_USE_CASE_LENGTH = 50;
 const DRAFT_STORAGE_KEY = "corbelle.gameplan.draft.v1";
 const HISTORY_STORAGE_KEY = "corbelle.gameplan.history.v1";
 const HISTORY_LIMIT = 10;
+const ACCESS_CHECK_TIMEOUT_MS = 10000;
 const RESTORABLE_STEPS = new Set(["intro", "history", "gates", "gateWarning", "scoring", "results", "gameplan"]);
 
 function readLocalJson(key, fallback) {
@@ -366,18 +367,28 @@ export default function App() {
   const [gameplanError, setGameplanError] = useState(null);
   const [gameplanStatus, setGameplanStatus] = useState("");
   const [accessStatus, setAccessStatus] = useState("checking");
+  const [accessCheckAttempt, setAccessCheckAttempt] = useState(0);
   const [showPurchaseSuccess, setShowPurchaseSuccess] = useState(
     () => new URLSearchParams(window.location.search).get("purchase") === "success"
   );
 
   useEffect(() => {
     let active = true;
-    fetch("/api/access/session", { credentials: "include" })
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), ACCESS_CHECK_TIMEOUT_MS);
+
+    setAccessStatus("checking");
+    fetch("/api/access/session", { credentials: "include", signal: controller.signal })
       .then(response => response.ok ? response.json() : Promise.reject(new Error("Access check failed")))
       .then(data => { if (active) setAccessStatus(data.access ? "allowed" : "denied"); })
-      .catch(() => { if (active) setAccessStatus("error"); });
-    return () => { active = false; };
-  }, []);
+      .catch(() => { if (active) setAccessStatus("error"); })
+      .finally(() => window.clearTimeout(timeout));
+    return () => {
+      active = false;
+      window.clearTimeout(timeout);
+      controller.abort();
+    };
+  }, [accessCheckAttempt]);
 
   useEffect(() => {
     if (!useCase.trim()) return;
@@ -616,6 +627,8 @@ export default function App() {
       ? "That access link has expired or has already been used."
       : accessIssue === "revoked"
         ? "This purchase no longer has access to the Gameplan."
+        : accessIssue === "missing"
+          ? "That access link is incomplete. Please use the full link from your Corbelle email."
         : accessIssue === "error"
           ? "We couldn't complete that sign-in link."
           : null;
@@ -630,7 +643,8 @@ export default function App() {
           ) : accessStatus === "error" ? (
             <>
               <h1 style={{ fontSize: 22, lineHeight: 1.3, marginBottom: 10 }}>We couldn't check your access</h1>
-              <p style={{ fontSize: 14, color: C.textSecond, lineHeight: 1.65 }}>Please refresh the page. If this continues, contact Corbelle and we'll help you get in.</p>
+              <p style={{ fontSize: 14, color: C.textSecond, lineHeight: 1.65 }}>The access check took too long or could not be completed. Try it again below.</p>
+              <button style={btnStyle} onClick={() => setAccessCheckAttempt(attempt => attempt + 1)}>Try Again</button>
             </>
           ) : (
             <>
