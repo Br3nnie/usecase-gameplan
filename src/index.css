@@ -48,6 +48,18 @@ textarea:focus, input:focus {
   border-color: #1a56db !important;
 }
 
+.gameplan-actions {
+  display: grid;
+  grid-template-columns: 1.15fr 0.7fr 1.45fr;
+  gap: 8px;
+}
+
+@media (max-width: 480px) {
+  .gameplan-actions {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media print {
   body { background: white !important; }
   .no-print { display: none !important; }

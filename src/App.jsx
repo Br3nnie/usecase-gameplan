@@ -406,6 +406,9 @@ export default function App() {
             value={useCase}
             onChange={e => setUseCase(e.target.value)}
           />
+          <div style={{ fontSize: 12, fontWeight: 600, textAlign: "right", marginTop: 6, color: useCase.trim().length < 10 ? C.red : C.green }}>
+            {useCase.trim().length}/10 characters minimum
+          </div>
           <button style={{ ...btnStyle, opacity: useCase.trim().length < 10 ? 0.45 : 1 }} disabled={useCase.trim().length < 10} onClick={() => setStep("gates")}>
             Begin Assessment →
           </button>
@@ -577,18 +580,20 @@ export default function App() {
 
               <div className="no-print" style={{ background: C.accentLight, borderRadius: 12, padding: "20px 22px", marginBottom: 16, borderLeft: `3px solid ${C.accent}` }}>
                 <div style={{ fontSize: 14, fontWeight: 700, color: C.textPrimary, marginBottom: 6 }}>
-                  {gameplan.closingLine || "Want to work through this with a thinking partner?"}
+                  This tells you what needs fixing and in what order — the next conversation is about which of these four steps you run first, and what it actually costs to do it properly.
                 </div>
-                <div style={{ fontSize: 13, color: C.textSecond, lineHeight: 1.6, marginBottom: 14 }}>Corbelle helps mid-size executives make confident AI decisions — without the hype, the wasted licences, or the expensive reversals.</div>
+                <div style={{ fontSize: 13, color: C.textSecond, lineHeight: 1.6, marginBottom: 14 }}>Corbelle helps executives make confident AI decisions without the hype, the wasted licences, or the expensive reversals.</div>
                 <a href="https://cal.com/brennie/ai-30-mins" target="_blank" rel="noopener noreferrer"
                   style={{ display: "block", background: C.accent, color: "#fff", borderRadius: 50, padding: "13px 20px", fontSize: 14, fontWeight: 600, textAlign: "center", textDecoration: "none" }}>
                   Book a Free 30-Minute Call →
                 </a>
               </div>
 
-              <button className="no-print" style={btnSecStyle} onClick={() => window.print()}>Print / Save as PDF</button>
-              <BackButton onClick={() => setStep("results")} />
-              <button className="no-print" style={{ ...btnSecStyle, marginTop: 8 }} onClick={reset}>Validate Another Use Case</button>
+              <div className="no-print gameplan-actions">
+                <button style={{ ...btnSecStyle, width: "auto", marginTop: 0, padding: "11px 12px", fontSize: 12, whiteSpace: "nowrap" }} onClick={() => window.print()}>Print / Save PDF</button>
+                <button style={{ ...btnSecStyle, width: "auto", marginTop: 0, padding: "11px 12px", fontSize: 12, whiteSpace: "nowrap" }} onClick={() => setStep("results")}>← Back</button>
+                <button style={{ ...btnSecStyle, width: "auto", marginTop: 0, padding: "11px 12px", fontSize: 12, whiteSpace: "nowrap" }} onClick={reset}>Validate New Use Case</button>
+              </div>
             </>
           )}
         </div>
