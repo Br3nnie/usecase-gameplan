@@ -369,6 +369,10 @@ export default function App() {
   const [gameplanStatus, setGameplanStatus] = useState("");
   const [accessStatus, setAccessStatus] = useState("checking");
   const [accessCheckAttempt, setAccessCheckAttempt] = useState(0);
+  const [showReturnAccess, setShowReturnAccess] = useState(false);
+  const [returnEmail, setReturnEmail] = useState("");
+  const [returnAccessStatus, setReturnAccessStatus] = useState("idle");
+  const [returnAccessMessage, setReturnAccessMessage] = useState("");
   const [showPurchaseSuccess, setShowPurchaseSuccess] = useState(
     () => new URLSearchParams(window.location.search).get("purchase") === "success"
   );
@@ -386,7 +390,15 @@ export default function App() {
     setAccessStatus("checking");
     fetch("/api/access/session", { credentials: "include", signal: controller.signal })
       .then(response => response.ok ? response.json() : Promise.reject(new Error("Access check failed")))
-      .then(data => { if (active) setAccessStatus(data.access ? "allowed" : "denied"); })
+      .then(data => {
+        if (!active) return;
+        const handoffChecked = new URLSearchParams(window.location.search).get("handoff") === "checked";
+        if (!data.access && window.location.hostname === "gameplan.corbelle.ai" && !handoffChecked) {
+          window.location.replace(`https://${LEGACY_APP_HOST}/api/access/handoff`);
+          return;
+        }
+        setAccessStatus(data.access ? "allowed" : "denied");
+      })
       .catch(() => { if (active) setAccessStatus("error"); })
       .finally(() => window.clearTimeout(timeout));
     return () => {
@@ -436,6 +448,28 @@ export default function App() {
   }, [assessmentId, step, useCase, scores, gameplan]);
 
   function setScore(key, val) { setScores(s => ({ ...s, [key]: val })); }
+
+  async function requestReturnAccess(event) {
+    event.preventDefault();
+    if (!returnEmail.trim() || returnAccessStatus === "sending") return;
+    setReturnAccessStatus("sending");
+    setReturnAccessMessage("");
+
+    try {
+      const response = await fetch("/api/access/request-link", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: returnEmail }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error("Request failed");
+      setReturnAccessStatus("sent");
+      setReturnAccessMessage(data.message);
+    } catch {
+      setReturnAccessStatus("error");
+      setReturnAccessMessage("We couldn't request a link just now. Please try again in a moment.");
+    }
+  }
 
   function saveDraft(nextStep = step) {
     if (!useCase.trim()) return;
@@ -657,8 +691,40 @@ export default function App() {
               <h1 style={{ fontSize: 22, lineHeight: 1.3, marginBottom: 10 }}>Your Gameplan is ready when you are</h1>
               {issueMessage && <div style={{ ...tipStyle, marginTop: 0, marginBottom: 14 }}>{issueMessage}</div>}
               <p style={{ fontSize: 14, color: C.textSecond, lineHeight: 1.65, marginBottom: checkoutUrl ? 0 : 4 }}>
-                Already purchased? Open the access link in your Corbelle email. It signs this device in automatically—no password needed.
+                Already purchased? Return with the access link in your Corbelle email, or request a fresh one below.
               </p>
+              {!showReturnAccess ? (
+                <button style={btnSecStyle} onClick={() => setShowReturnAccess(true)}>
+                  Already Purchased? Restore Access
+                </button>
+              ) : (
+                <form onSubmit={requestReturnAccess} style={{ marginTop: 16 }}>
+                  <label htmlFor="return-email" style={{ display: "block", fontSize: 13, fontWeight: 600, color: C.textPrimary, marginBottom: 7 }}>
+                    Purchase email
+                  </label>
+                  <input
+                    id="return-email"
+                    type="email"
+                    autoComplete="email"
+                    required
+                    style={inputStyle}
+                    placeholder="you@company.com"
+                    value={returnEmail}
+                    onChange={event => setReturnEmail(event.target.value)}
+                    disabled={returnAccessStatus === "sending" || returnAccessStatus === "sent"}
+                  />
+                  {returnAccessMessage && (
+                    <div style={{ ...tipStyle, marginTop: 10, color: returnAccessStatus === "error" ? C.redText : C.accentText }}>
+                      {returnAccessMessage}
+                    </div>
+                  )}
+                  {returnAccessStatus !== "sent" && (
+                    <button style={{ ...btnSecStyle, opacity: returnAccessStatus === "sending" ? 0.55 : 1 }} disabled={returnAccessStatus === "sending"}>
+                      {returnAccessStatus === "sending" ? "Sending…" : "Email My Access Link"}
+                    </button>
+                  )}
+                </form>
+              )}
               {checkoutUrl && (
                 <a href={checkoutUrl} style={{ ...btnStyle, display: "block", textAlign: "center", textDecoration: "none" }}>
                   Get Access →

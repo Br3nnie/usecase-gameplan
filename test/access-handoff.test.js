@@ -55,7 +55,7 @@ test("a visitor without a legacy session is sent to the branded app", async () =
   await handler({ method: "GET" }, res);
 
   assert.equal(res.statusCode, 302);
-  assert.equal(res.headers.Location, "https://gameplan.corbelle.ai");
+  assert.equal(res.headers.Location, "https://gameplan.corbelle.ai/?handoff=checked");
   assert.equal(created.length, 0);
 });
 

@@ -28,7 +28,7 @@ export function createHandoffHandler(dependencies) {
 
     try {
       const session = await getSession(req);
-      if (!session) return redirect(res, appUrl);
+      if (!session) return redirect(res, `${appUrl}/?handoff=checked`);
 
       const tier = await findTier(session.email);
       if (!tierHasAccess(tier, "gameplan")) return redirect(res, `${appUrl}/?access=revoked`);
