@@ -2,7 +2,7 @@
 
 Standalone build of the AI Use Case Validator with a new **Gameplan** step. Same 3 kill-switch gates and 8 weighted scoring dimensions as the original `usecase_validator`, plus: after the score, one dedicated Claude call turns the user's three weakest dimensions into a sequenced, numbered action plan — each step optionally mapped to the relevant stage in Corbelle's 6-stage AI product suite (Readiness Diagnostic, Use Case ID & Prioritisation, AI Audit, Tool & Solution Match, Governance & Policy, Rollout & Adoption).
 
-This is a lean fork, deliberately: no email gate, no Loops/lead-capture integration. Add that back later if this becomes the primary tool.
+This is a paid standalone tool. Stripe Checkout grants access immediately after a verified £7 payment, stores the entitlement in Redis, signs the buyer into the app, and sends a one-time backup access link through Resend.
 
 ## What's different from usecase_validator
 
@@ -27,10 +27,22 @@ gh repo create usecase-gameplan --public --push
 - vercel.com → Add New Project → Import `usecase-gameplan`
 - Framework preset: Vite (auto-detected via `vercel.json`)
 
-### 3. Add your API key
+### 3. Add environment variables
 - Vercel dashboard → project → Settings → Environment Variables
-- Add `ANTHROPIC_API_KEY` = your key from console.anthropic.com
+- `ANTHROPIC_API_KEY`
+- `APP_URL` (for example `https://usecase-gameplan.vercel.app`)
+- `SALES_URL` (for example `https://corbelle.ai/usecasegameplan`)
+- `SESSION_SECRET` (a long random value)
+- `STRIPE_SECRET_KEY`
+- `STRIPE_PRICE_GAMEPLAN` (the Stripe Price ID for the £7 one-time product)
+- `STRIPE_WEBHOOK_SECRET`
+- `RESEND_API_KEY` and `MAIL_FROM`
+- `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` (the Vercel KV aliases are also supported)
 - Redeploy (Settings → Deployments → Redeploy)
+
+### 4. Add the Stripe webhook
+
+Create a Stripe webhook endpoint for `https://usecase-gameplan.vercel.app/api/webhooks/stripe` and subscribe to `checkout.session.completed` and `checkout.session.async_payment_succeeded`. Copy its signing secret into `STRIPE_WEBHOOK_SECRET`.
 
 Live at `your-project.vercel.app`.
 
