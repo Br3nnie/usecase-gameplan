@@ -1,3 +1,6 @@
+import { getTier, hasAccess } from '../lib/entitlements.js'
+import { getRequestSession } from '../lib/session.js'
+
 export const config = {
   maxDuration: 30,
 }
@@ -46,6 +49,12 @@ export default async function handler(req, res) {
   }
 
   try {
+    const session = await getRequestSession(req)
+    if (!session) return res.status(401).json({ error: 'Access required' })
+
+    const tier = await getTier(session.email)
+    if (!hasAccess(tier, 'gameplan')) return res.status(403).json({ error: 'Purchase required' })
+
     const { useCase, foundationScore, verdictLabel, weakestDimensions } = req.body
 
     if (!useCase || !Array.isArray(weakestDimensions)) {

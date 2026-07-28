@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 // ─── COLOUR TOKENS ───────────────────────────────────────────────
 const C = {
@@ -289,6 +289,16 @@ export default function App() {
   const [loadingGameplan, setLoadingGameplan] = useState(false);
   const [gameplanError, setGameplanError] = useState(null);
   const [gameplanStatus, setGameplanStatus] = useState("");
+  const [accessStatus, setAccessStatus] = useState("checking");
+
+  useEffect(() => {
+    let active = true;
+    fetch("/api/access/session", { credentials: "include" })
+      .then(response => response.ok ? response.json() : Promise.reject(new Error("Access check failed")))
+      .then(data => { if (active) setAccessStatus(data.access ? "allowed" : "denied"); })
+      .catch(() => { if (active) setAccessStatus("error"); });
+    return () => { active = false; };
+  }, []);
 
   function setScore(key, val) { setScores(s => ({ ...s, [key]: val })); }
 
@@ -386,6 +396,48 @@ export default function App() {
   const verdict     = getVerdict(score);
   const currentGate = GATES[gateIndex];
   const currentDim  = SCORING_DIMS[scoringIndex];
+
+  if (accessStatus !== "allowed") {
+    const accessIssue = new URLSearchParams(window.location.search).get("access");
+    const checkoutUrl = import.meta.env.VITE_GAMEPLAN_CHECKOUT_URL;
+    const issueMessage = accessIssue === "expired"
+      ? "That access link has expired or has already been used."
+      : accessIssue === "revoked"
+        ? "This purchase no longer has access to the Gameplan."
+        : accessIssue === "error"
+          ? "We couldn't complete that sign-in link."
+          : null;
+
+    return (
+      <div style={wrapStyle}>
+        <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+        <div style={{ ...cardStyle, maxWidth: 520 }}>
+          <BrandHeader subtitle="AI Use Case Gameplan" />
+          {accessStatus === "checking" ? (
+            <p style={{ fontSize: 14, color: C.textMuted, lineHeight: 1.6 }}>Checking your access…</p>
+          ) : accessStatus === "error" ? (
+            <>
+              <h1 style={{ fontSize: 22, lineHeight: 1.3, marginBottom: 10 }}>We couldn't check your access</h1>
+              <p style={{ fontSize: 14, color: C.textSecond, lineHeight: 1.65 }}>Please refresh the page. If this continues, contact Corbelle and we'll help you get in.</p>
+            </>
+          ) : (
+            <>
+              <h1 style={{ fontSize: 22, lineHeight: 1.3, marginBottom: 10 }}>Your Gameplan is ready when you are</h1>
+              {issueMessage && <div style={{ ...tipStyle, marginTop: 0, marginBottom: 14 }}>{issueMessage}</div>}
+              <p style={{ fontSize: 14, color: C.textSecond, lineHeight: 1.65, marginBottom: checkoutUrl ? 0 : 4 }}>
+                Already purchased? Open the access link in your Corbelle email. It signs this device in automatically—no password needed.
+              </p>
+              {checkoutUrl && (
+                <a href={checkoutUrl} style={{ ...btnStyle, display: "block", textAlign: "center", textDecoration: "none" }}>
+                  Get Access →
+                </a>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={wrapStyle}>
