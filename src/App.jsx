@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { nextGateProgress } from "../lib/assessment-flow.js";
 
 // ─── COLOUR TOKENS ───────────────────────────────────────────────
 const C = {
@@ -598,7 +599,9 @@ export default function App() {
   }
 
   function advanceFromGate() {
-    if (gateIndex < GATES.length - 1) { setGateIndex(i => i + 1); } else { setStep("scoring"); }
+    const next = nextGateProgress(gateIndex, GATES.length);
+    setGateIndex(next.gateIndex);
+    setStep(next.step);
   }
 
   function continueWithGap() {
