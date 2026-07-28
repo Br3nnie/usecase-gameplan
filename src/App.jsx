@@ -420,10 +420,23 @@ export default function App() {
   function setScore(key, val) { setScores(s => ({ ...s, [key]: val })); }
 
   function calcScore() {
-    return Math.round(SCORING_DIMS.reduce((acc, d) => acc + (scores[d.key] / 5) * d.weight, 0) * 100);
+    const foundationScore = GATES.reduce((acc, gate) => acc + scores[gate.key] / 5, 0) / GATES.length;
+    const readinessScore = SCORING_DIMS.reduce((acc, d) => acc + (scores[d.key] / 5) * d.weight, 0);
+    return Math.round(((foundationScore * 0.30) + (readinessScore * 0.70)) * 100);
   }
 
-  function getVerdict(s) { return VERDICT_BANDS.find(b => s >= b.min); }
+  function getVerdict(s) {
+    const scoreVerdict = VERDICT_BANDS.find(b => s >= b.min);
+    const gapCount = foundationGaps().length;
+
+    if (gapCount >= 2 && scoreVerdict.min > 40) {
+      return VERDICT_BANDS.find(b => b.min === 40);
+    }
+    if (gapCount === 1 && scoreVerdict.min > 60) {
+      return VERDICT_BANDS.find(b => b.min === 60);
+    }
+    return scoreVerdict;
+  }
 
   function weakestDims(n = 3) {
     return [...SCORING_DIMS]
@@ -752,6 +765,15 @@ export default function App() {
       {step === "results" && (
         <div style={{ ...cardStyle, maxWidth: 640 }}>
           <BrandHeader subtitle="Use Case Gameplan" />
+          <div style={{ marginBottom: 22 }}>
+            <div style={labelStyle}>The decision in front of you</div>
+            <h1 style={{ fontSize: 24, fontWeight: 700, color: C.textPrimary, lineHeight: 1.25, margin: "0 0 8px" }}>
+              Is this use case worth pursuing — and what should you do next?
+            </h1>
+            <div style={{ background: C.inputBg, border: `1px solid ${C.border}`, borderRadius: 10, padding: "14px 16px" }}>
+              <p style={{ fontSize: 13, color: C.textSecond, lineHeight: 1.65, margin: 0 }}>{useCase}</p>
+            </div>
+          </div>
 
           {/* Score */}
           <div style={{ display: "flex", gap: 20, alignItems: "center", marginBottom: 28 }}>
@@ -764,7 +786,37 @@ export default function App() {
             <div>
               <div style={{ fontSize: 19, fontWeight: 700, color: verdict?.color, marginBottom: 5 }}>{verdict?.icon} {verdict?.label}</div>
               <div style={{ fontSize: 13, color: C.textSecond, lineHeight: 1.6 }}>{verdict?.message}</div>
+              <div style={{ fontSize: 11, color: C.textMuted, lineHeight: 1.5, marginTop: 6 }}>30% foundations · 70% delivery readiness</div>
             </div>
+          </div>
+
+          {/* Foundation gaps */}
+          <div style={{ marginBottom: 26 }}>
+            <div style={{ ...labelStyle, color: foundationGaps().length ? C.amber : C.green }}>Foundation check</div>
+            {foundationGaps().length ? (
+              <div style={{ background: "#fffbeb", border: "1.5px solid #fde68a", borderRadius: 12, padding: "18px 20px" }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: C.textPrimary, marginBottom: 8 }}>
+                  {foundationGaps().length === 1
+                    ? "One foundation needs validating before you commit."
+                    : `${foundationGaps().length} foundations need validating before you commit.`}
+                </div>
+                <p style={{ fontSize: 13, color: C.textSecond, lineHeight: 1.6, margin: "0 0 12px" }}>
+                  This is not a rejection. These gaps will become the first actions in your Gameplan.
+                </p>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {foundationGaps().map(gap => (
+                    <div key={gap.label} style={{ display: "flex", justifyContent: "space-between", gap: 16, fontSize: 13 }}>
+                      <span style={{ color: C.textSecond, fontWeight: 600 }}>{gap.label}</span>
+                      <span style={{ color: C.amber, fontWeight: 700, textAlign: "right" }}>{gap.score}/5 — {gap.scaleLabel}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div style={{ background: C.greenBg, border: "1.5px solid #bbf7d0", borderRadius: 12, padding: "16px 18px", fontSize: 13, color: C.textSecond, lineHeight: 1.6 }}>
+                No critical foundation gaps were recorded. Your score reflects both the strength of the idea’s foundations and its delivery readiness.
+              </div>
+            )}
           </div>
 
           {/* Radar */}
