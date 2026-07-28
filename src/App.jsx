@@ -378,10 +378,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!useCase.trim()) {
-      try { window.localStorage.removeItem(DRAFT_STORAGE_KEY); } catch {}
-      return;
-    }
+    if (!useCase.trim()) return;
 
     writeLocalJson(DRAFT_STORAGE_KEY, {
       id: assessmentId,
@@ -420,6 +417,26 @@ export default function App() {
   }, [assessmentId, step, useCase, scores, gameplan]);
 
   function setScore(key, val) { setScores(s => ({ ...s, [key]: val })); }
+
+  function saveDraft(nextStep = step) {
+    if (!useCase.trim()) return;
+    writeLocalJson(DRAFT_STORAGE_KEY, {
+      id: assessmentId,
+      step: nextStep,
+      useCase,
+      scores,
+      gateIndex,
+      scoringIndex,
+      failedGateKey: failedGate?.key || null,
+      gameplan,
+      updatedAt: new Date().toISOString(),
+    });
+  }
+
+  function beginAssessment() {
+    saveDraft("gates");
+    setStep("gates");
+  }
 
   function calcScore() {
     const foundationScore = GATES.reduce((acc, gate) => acc + scores[gate.key] / 5, 0) / GATES.length;
@@ -522,7 +539,18 @@ export default function App() {
   }
 
   function handleGateBack() {
-    if (gateIndex === 0) { setStep("intro"); } else { setGateIndex(i => i - 1); }
+    if (gateIndex === 0) {
+      const savedDraft = readLocalJson(DRAFT_STORAGE_KEY, null);
+      if (!useCase.trim() && savedDraft?.useCase) {
+        setUseCase(savedDraft.useCase);
+        writeLocalJson(DRAFT_STORAGE_KEY, { ...savedDraft, step: "intro", updatedAt: new Date().toISOString() });
+      } else {
+        saveDraft("intro");
+      }
+      setStep("intro");
+    } else {
+      setGateIndex(i => i - 1);
+    }
   }
 
   function handleScoringNext() {
@@ -650,7 +678,7 @@ export default function App() {
           <div style={{ fontSize: 12, fontWeight: 600, textAlign: "right", marginTop: 6, color: canBeginAssessment ? C.green : C.red }}>
             {useCaseLength}/{MIN_USE_CASE_LENGTH} characters minimum
           </div>
-          <button style={{ ...btnStyle, opacity: canBeginAssessment ? 1 : 0.45 }} disabled={!canBeginAssessment} onClick={() => setStep("gates")}>
+          <button style={{ ...btnStyle, opacity: canBeginAssessment ? 1 : 0.45 }} disabled={!canBeginAssessment} onClick={beginAssessment}>
             Begin Assessment →
           </button>
           {history.length > 0 && (
